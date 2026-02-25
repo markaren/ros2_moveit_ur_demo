@@ -15,6 +15,8 @@
     <depend>ur_moveit_config</depend>
     <depend>moveit_ros_move_group</depend>
     <depend>moveit_configs_utils</depend>
+    <exec_depend>moveit_planners_ompl</exec_depend>
+    <exec_depend>ur_robot_driver</exec_depend>
 
     <export>
         <build_type>ament_cmake</build_type>
