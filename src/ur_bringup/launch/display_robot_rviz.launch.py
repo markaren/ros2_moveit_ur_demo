@@ -37,6 +37,14 @@ def generate_launch_description():
         parameters=[{'robot_description': robot_description_content}]
     )
 
+    kine_env_node = Node(
+        package='kine',
+        executable='kine_environment',
+        name='kine_environment',
+        output='screen',
+        parameters=[{'use_sim_time': False, 'robot_description': robot_description_content}]
+    )
+
     rviz_config_file = PathJoinSubstitution([
         FindPackageShare("ur_description"), # ur_description often has a basic view config
         "rviz",
@@ -52,5 +60,5 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        rsp_node, jsp_node, rviz_node
+        rsp_node, jsp_node, rviz_node, kine_env_node
     ])

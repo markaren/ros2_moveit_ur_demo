@@ -3,3 +3,4 @@ install
 log
 .idea
 cmake-build-*
+imgui.ini

@@ -18,11 +18,9 @@ endif ()
 find_package(ament_cmake REQUIRED)
 
 # Add each package as a subdirectory
-#add_subdirectory(src/kine)
-#add_subdirectory(src/kine_vision)
-#add_subdirectory(src/interactive_goal)
-
-include_directories(install/include)
+add_subdirectory(src/fake_controller)
+add_subdirectory(src/kine)
+#include_directories(install/include)
 
 # ---- colcon build target ----
 add_custom_target(colcon_build
