@@ -233,6 +233,13 @@ void KineEnvironmentNode::run()
         }
         ImGui::EndDisabled();
 
+        if (ImGui::Button("Reset gizmo"))
+        {
+            const auto transform = robot_->getEndEffectorTransform();
+            target->position.setFromMatrixPosition(transform);
+            target->quaternion.setFromRotationMatrix(transform);
+        }
+
         ImGui::End();
     });
 
