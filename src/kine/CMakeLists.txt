@@ -17,6 +17,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(moveit_ros_planning_interface REQUIRED)
 
 find_package(assimp REQUIRED)
 
@@ -36,7 +37,7 @@ add_subdirectory(${threepp_SOURCE_DIR}/examples/external ${CMAKE_CURRENT_BINARY_
 
 add_executable(kine_environment kine_environment.cpp src/KineEnvironment.cpp)
 target_include_directories(kine_environment PUBLIC include)
-ament_target_dependencies(kine_environment rclcpp ament_index_cpp std_msgs sensor_msgs geometry_msgs)
+ament_target_dependencies(kine_environment rclcpp ament_index_cpp std_msgs sensor_msgs geometry_msgs moveit_ros_planning_interface)
 target_link_libraries(kine_environment threepp::threepp imgui assimp::assimp)
 target_compile_definitions(kine_environment PRIVATE PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 

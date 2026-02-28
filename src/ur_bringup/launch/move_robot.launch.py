@@ -25,6 +25,12 @@ def load_yaml(package_name, file_path):
 def generate_launch_description():
     controller_name = "fake_ur_manipulator_controller"
 
+    launch_rviz_arg = DeclareLaunchArgument(
+        "launch_rviz",
+        default_value="true",
+        description="Whether to launch RViz2",
+    )
+
     ur_type_arg = DeclareLaunchArgument(
         "ur_type",
         default_value="ur5e",
@@ -72,7 +78,7 @@ def generate_launch_description():
             moveit_controllers_yaml,
             {
                 "use_sim_time": False,
-                "publish_robot_description_semantic": False,
+                "publish_robot_description_semantic": True,
                 "moveit_manage_controllers": True
             },
         ],
@@ -119,12 +125,22 @@ def generate_launch_description():
         }],
     )
 
+    planner_node = Node(
+        package="target_planner",
+        executable="target_planner",
+        name="target_planner",
+        output="screen",
+        parameters=[{
+            "use_sim_time": False,
+        }],
+    )
+
     rviz_config_file = PathJoinSubstitution(
         [FindPackageShare("ur_moveit_config"), "config", "moveit.rviz"]
     )
     rviz_node = Node(
         package="rviz2",
-        # condition=IfCondition("True"),
+        condition=IfCondition(LaunchConfiguration("launch_rviz")),
         executable="rviz2",
         name="rviz2_moveit",
         output="log",
@@ -142,6 +158,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        ur_type_arg,
+        ur_type_arg, launch_rviz_arg, planner_node,
         static_tf, rsp_node, fake_controller_node, move_group, rviz_node, kine_env_node
     ])

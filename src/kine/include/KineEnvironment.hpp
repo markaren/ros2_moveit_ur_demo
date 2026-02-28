@@ -7,18 +7,19 @@
 
 #include <rclcpp/parameter_client.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <std_msgs/msg/empty.hpp>
+#include <moveit_msgs/msg/display_trajectory.hpp>
 
 #include <threepp/objects/Robot.hpp>
 
 using namespace threepp;
 
-class KineEnvironmentNode : public rclcpp::Node {
+class KineEnvironmentNode : public rclcpp::Node
+{
 public:
     KineEnvironmentNode();
-
-    void publishImage(int textureSize, const uint8_t *pixels) const;
 
     void run();
 
@@ -26,17 +27,26 @@ public:
 
 private:
     std::string urdf_;
-    std::shared_ptr<Robot> robot_;
+    std::shared_ptr<Robot> robot_, ghost_;
     std::vector<std::string> jointNames_;
 
     std::vector<float> getRobotJointValuesThreadSafe() const;
-    void setRobotJointValuesThreadSafe(const std::vector<float> &values);
+    void setRobotJointValuesThreadSafe(const std::vector<float>& values);
 
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
+    rclcpp::Subscription<moveit_msgs::msg::DisplayTrajectory>::SharedPtr trajectory_sub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_pub_;
+    rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr execute_pub_;
 
-    std::unique_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
+    std::mutex ghost_mutex_;
+    std::vector<std::vector<float>> trajectory_points_;
+    std::vector<float> trajectory_times_;
+    float ghostElapsed_{0.0f};
+    bool ghostVisible_{false};
+    bool ghostPlaying_{false};
+
     std::thread thread_;
-    std::binary_semaphore sem_{0};
+
 };
 
 #endif // KINEENVIRONMENT_HPP

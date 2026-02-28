@@ -13,14 +13,21 @@ if (WIN32)
         set(OPENSSL_ROOT_DIR "C:/robostack/.pixi/envs/default/Library")
         set(OPENSSL_USE_STATIC_LIBS FALSE)
     endif ()
+
+    find_package(Bullet QUIET)
+    if (NOT Bullet_FOUND)
+        message(STATUS "Bullet3 not found, trying to locate in pixi environment...")
+        set(BULLET_ROOT "C:/robostack/.pixi/envs/jazzy/Library")
+    endif ()
 endif ()
 
 find_package(ament_cmake REQUIRED)
 
 # Add each package as a subdirectory
 add_subdirectory(src/fake_controller)
+add_subdirectory(src/target_planner)
 add_subdirectory(src/kine)
-#include_directories(install/include)
+
 
 # ---- colcon build target ----
 add_custom_target(colcon_build
