@@ -1,25 +1,39 @@
-
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.conditions import IfCondition
+from launch.actions import DeclareLaunchArgument
 from launch_ros.substitutions import FindPackageShare
-from launch.substitutions import Command, FindExecutable, PathJoinSubstitution
+from launch.substitutions import Command, FindExecutable, PathJoinSubstitution, LaunchConfiguration
+
 
 def generate_launch_description():
+    ur_type_arg = DeclareLaunchArgument(
+        "ur_type",
+        default_value="ur5e",
+        description="Which UR robot to display (e.g., ur3, ur5, ur5e, ur10, ur10e)",
+    )
 
-    ur_config_path = PathJoinSubstitution([FindPackageShare("ur_description"), "config", "ur5e"])
+    launch_rviz_arg = DeclareLaunchArgument(
+        "launch_rviz",
+        default_value="true",
+        description="Whether to launch RViz2",
+    )
 
+    ur_type = LaunchConfiguration("ur_type")
+
+    ur_config_path = PathJoinSubstitution([FindPackageShare("ur_description"), "config", ur_type])
     robot_description_content = Command(
         [
             PathJoinSubstitution([FindExecutable(name="xacro")]),
             " ",
             PathJoinSubstitution([FindPackageShare("ur_description"), "urdf", "ur.urdf.xacro"]),
             " ", "name:=ur",
-            " ", "ur_type:=ur5e",
+            " ", f"ur_type:=", ur_type,
             " ", "joint_limit_params:=", ur_config_path, "/joint_limits.yaml",
             " ", "kinematics_params:=", ur_config_path, "/default_kinematics.yaml",
             " ", "physical_params:=", ur_config_path, "/physical_parameters.yaml",
             " ", "visual_params:=", ur_config_path, "/visual_parameters.yaml",
-            " ", "safety_limits:=true", # Recommended for visualization
+            " ", "safety_limits:=true",  # Recommended for visualization
         ]
     )
 
@@ -46,7 +60,7 @@ def generate_launch_description():
     )
 
     rviz_config_file = PathJoinSubstitution([
-        FindPackageShare("ur_description"), # ur_description often has a basic view config
+        FindPackageShare("ur_description"),
         "rviz",
         "view_robot.rviz"
     ])
@@ -56,9 +70,11 @@ def generate_launch_description():
         executable='rviz2',
         name='rviz2',
         output='screen',
-        arguments=['-d', rviz_config_file]
+        arguments=['-d', rviz_config_file],
+        condition=IfCondition(LaunchConfiguration("launch_rviz")),
     )
 
     return LaunchDescription([
+        ur_type_arg, launch_rviz_arg,
         rsp_node, jsp_node, rviz_node, kine_env_node
     ])

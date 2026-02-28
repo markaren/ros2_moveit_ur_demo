@@ -1,12 +1,13 @@
 import os, yaml
 from pathlib import Path
 
-from launch.substitutions import PathJoinSubstitution, Command, FindExecutable
+from launch.substitutions import PathJoinSubstitution, Command, FindExecutable, LaunchConfiguration
 from launch_ros.substitutions import FindPackageShare
 from moveit_configs_utils import MoveItConfigsBuilder
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.conditions import IfCondition
+from launch.actions import DeclareLaunchArgument
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -24,9 +25,17 @@ def load_yaml(package_name, file_path):
 def generate_launch_description():
     controller_name = "fake_ur_manipulator_controller"
 
+    ur_type_arg = DeclareLaunchArgument(
+        "ur_type",
+        default_value="ur5e",
+        description="Which UR robot to display (e.g., ur3, ur5, ur5e, ur10, ur10e)",
+    )
+
+    ur_type = LaunchConfiguration("ur_type")
+
     moveit_config = (
         MoveItConfigsBuilder(robot_name="ur", package_name="ur_moveit_config")
-        .robot_description_semantic(Path("srdf") / "ur.srdf.xacro", {"name": "ur", "ur_type": "ur5e"})
+        .robot_description_semantic(Path("srdf") / "ur.srdf.xacro", {"name": "ur", "ur_type": ur_type})
         .to_moveit_configs()
     )
 
@@ -83,7 +92,7 @@ def generate_launch_description():
             " ",
             PathJoinSubstitution([FindPackageShare("ur_description"), "urdf", "ur.urdf.xacro"]),
             " ", "name:=ur",
-            " ", "ur_type:=ur5e",
+            " ", "ur_type:=", ur_type,
             " ", "joint_limit_params:=", ur_config_path, "/joint_limits.yaml",
             " ", "kinematics_params:=", ur_config_path, "/default_kinematics.yaml",
             " ", "physical_params:=", ur_config_path, "/physical_parameters.yaml",
@@ -115,7 +124,7 @@ def generate_launch_description():
     )
     rviz_node = Node(
         package="rviz2",
-        condition=IfCondition("True"),
+        # condition=IfCondition("True"),
         executable="rviz2",
         name="rviz2_moveit",
         output="log",
@@ -132,4 +141,7 @@ def generate_launch_description():
         ],
     )
 
-    return LaunchDescription([static_tf, rsp_node, fake_controller_node, move_group, rviz_node, kine_env_node])
+    return LaunchDescription([
+        ur_type_arg,
+        static_tf, rsp_node, fake_controller_node, move_group, rviz_node, kine_env_node
+    ])
