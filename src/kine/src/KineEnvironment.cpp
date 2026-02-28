@@ -15,9 +15,7 @@
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <threepp/controls/TransformControls.hpp>
-#include <threepp/helpers/AxesHelper.hpp>
 #include <threepp/materials/MeshBasicMaterial.hpp>
-
 
 using namespace threepp;
 using namespace std::chrono_literals;
@@ -61,6 +59,8 @@ KineEnvironmentNode::KineEnvironmentNode() : Node("kine_environment_node")
         m.setMaterial(ghostMaterial);
     });
 
+    animator_ = std::make_unique<TrajectoryAnimator>(ghost_);
+
     RCLCPP_INFO(get_logger(), "Loaded URDF robot with %zu DOF", robot_->numDOF());
 
     const auto info = robot_->getArticulatedJointInfo();
@@ -84,40 +84,9 @@ KineEnvironmentNode::KineEnvironmentNode() : Node("kine_environment_node")
            "display_planned_path", 10,
            [this](moveit_msgs::msg::DisplayTrajectory::SharedPtr msg)
            {
-               std::lock_guard lock(ghost_mutex_);
-               trajectory_points_.clear();
-               trajectory_times_.clear();
-               ghostVisible_ = false;
-               ghostElapsed_ = 0.0f;
-               ghostPlaying_ = false;
+               animator_->loadTrajectory(msg);
 
-               if (msg->trajectory.empty()) return;
-
-               const auto& joint_traj = msg->trajectory.back().joint_trajectory;
-               if (joint_traj.points.empty()) return;
-
-               for (const auto& point : joint_traj.points)
-               {
-                   std::vector<float> joints;
-                   joints.reserve(point.positions.size());
-                   for (const auto& p : point.positions)
-                   {
-                       joints.push_back(static_cast<float>(p));
-                   }
-                   trajectory_points_.push_back(std::move(joints));
-
-                   double t = point.time_from_start.sec
-                            + point.time_from_start.nanosec * 1e-9;
-                   trajectory_times_.push_back(static_cast<float>(t));
-               }
-
-               ghostVisible_ = true;
-               ghostPlaying_ = true;
-               ghostElapsed_ = 0.0f;
-
-               RCLCPP_INFO(get_logger(), "Ghost trajectory received: %zu points, %.2fs duration",
-                           trajectory_points_.size(),
-                           trajectory_times_.empty() ? 0.0f : trajectory_times_.back());
+               RCLCPP_INFO(get_logger(), "Ghost trajectory received");
            });
 
     target_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -259,11 +228,7 @@ void KineEnvironmentNode::run()
             std_msgs::msg::Empty empty_msg;
             execute_pub_->publish(empty_msg);
             planRequested = false;
-            {
-                std::lock_guard lock(ghost_mutex_);
-                ghostVisible_ = false;
-                ghostPlaying_ = false;
-            }
+            animator_->stop();
             RCLCPP_INFO(get_logger(), "Execute requested");
         }
         ImGui::EndDisabled();
@@ -287,68 +252,7 @@ void KineEnvironmentNode::run()
     {
         const auto dt = clock.getDelta();
 
-        // Animate ghost through trajectory points
-        {
-            std::lock_guard lock(ghost_mutex_);
-            ghost_->visible = ghostVisible_;
-
-            if (ghost_->visible && ghostPlaying_
-                && trajectory_points_.size() >= 2
-                && !trajectory_times_.empty())
-            {
-                ghostElapsed_ += 2 * dt;
-                const float duration = trajectory_times_.back();
-
-                if (ghostElapsed_ >= duration)
-                {
-                    if (loopGhost)
-                    {
-                        ghostElapsed_ = std::fmod(ghostElapsed_, duration);
-                    }
-                    else
-                    {
-                        ghostElapsed_ = duration;
-                        ghostPlaying_ = false;
-                    }
-                }
-
-                // Find the two surrounding trajectory points
-                size_t nextIdx = 1;
-                for (; nextIdx < trajectory_times_.size(); ++nextIdx)
-                {
-                    if (trajectory_times_[nextIdx] >= ghostElapsed_)
-                        break;
-                }
-                size_t prevIdx = nextIdx - 1;
-
-                const float t0 = trajectory_times_[prevIdx];
-                const float t1 = trajectory_times_[nextIdx];
-                float alpha = (t1 > t0)
-                    ? (ghostElapsed_ - t0) / (t1 - t0)
-                    : 0.0f;
-                alpha = std::clamp(alpha, 0.0f, 1.0f);
-
-                const auto& prev = trajectory_points_[prevIdx];
-                const auto& next = trajectory_points_[nextIdx];
-                const size_t numJoints = std::min(prev.size(), next.size());
-
-                for (size_t i = 0; i < numJoints; ++i)
-                {
-                    const float val = prev[i] + alpha * (next[i] - prev[i]);
-                    ghost_->setJointValue(i, val);
-                }
-            }
-            else if (ghost_->visible && !trajectory_points_.empty() && !ghostPlaying_)
-            {
-                // Stopped: show final pose
-                const auto& last = trajectory_points_.back();
-                for (size_t i = 0; i < last.size(); ++i)
-                {
-                    ghost_->setJointValue(i, last[i]);
-                }
-            }
-        }
-
+        animator_->update(dt, loopGhost);
         renderer.render(scene, camera);
 
         ui.render();
