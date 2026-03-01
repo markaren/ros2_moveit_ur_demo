@@ -293,6 +293,8 @@ void KineEnvironmentNode::run()
                 const auto transform = robot_->getEndEffectorTransform();
                 goal_target->position.setFromMatrixPosition(transform);
                 goal_target->quaternion.setFromRotationMatrix(transform);
+
+                ik_ghost_->setJointValues(robot_->jointValues());
             }
         }
         ImGui::End();
