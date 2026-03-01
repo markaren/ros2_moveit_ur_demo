@@ -28,6 +28,17 @@ using MoveIt's MoveGroupInterface, and executes it when triggered via the `execu
 A visualisation environment for URDF models that also allows users to publish target poses for the target_planner node.
 Listens to `/joint_states` for showing the current state of the robot. Also listens to `/display_planned_path` for showing planned paths.
 
+## Usage
+
+Pure URDF visualisation:
+```
+ros2 launch ur_bringup display_robot.launch.py launch_rviz:=false|true
+```
+
+URDF visualisation and MoveIt planning:
+```
+ros2 launch ur_bringup move_robot.launch.py launch_rviz:=false|true
+```
 
 ## Requirements
 

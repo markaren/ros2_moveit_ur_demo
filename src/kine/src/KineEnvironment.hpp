@@ -3,16 +3,19 @@
 
 #include <chrono>
 #include <memory>
-#include <TrajectoryAnimator.hpp>
 
 #include <rclcpp/parameter_client.hpp>
 #include <rclcpp/rclcpp.hpp>
+
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <std_msgs/msg/empty.hpp>
+
 #include <moveit_msgs/msg/display_trajectory.hpp>
 
 #include <threepp/objects/Robot.hpp>
+
+#include "TrajectoryAnimator.hpp"
 
 using namespace threepp;
 
@@ -38,7 +41,7 @@ private:
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_pub_;
     rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr execute_pub_;
 
-    std::thread thread_;
+    std::jthread thread_;
 };
 
 #endif // KINEENVIRONMENT_HPP

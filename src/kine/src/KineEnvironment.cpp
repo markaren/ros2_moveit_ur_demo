@@ -1,5 +1,7 @@
 #include "KineEnvironment.hpp"
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
+
 #include <threepp/cameras/PerspectiveCamera.hpp>
 #include <threepp/controls/OrbitControls.hpp>
 #include <threepp/core/Clock.hpp>
@@ -12,10 +14,10 @@
 #include <threepp/scenes/Scene.hpp>
 #include <threepp/extras/imgui/ImguiContext.hpp>
 #include <threepp/loaders/URDFLoader.hpp>
-
-#include <ament_index_cpp/get_package_share_directory.hpp>
 #include <threepp/controls/TransformControls.hpp>
 #include <threepp/materials/MeshBasicMaterial.hpp>
+
+#include "TransformKeyListener.hpp"
 
 using namespace threepp;
 using namespace std::chrono_literals;
@@ -102,7 +104,7 @@ KineEnvironmentNode::KineEnvironmentNode() : Node("kine_environment_node")
         "target_pose", 10);
 
 
-    thread_ = std::thread(&KineEnvironmentNode::run, this);
+    thread_ = std::jthread(&KineEnvironmentNode::run, this);
 }
 
 void KineEnvironmentNode::run()
@@ -143,33 +145,7 @@ void KineEnvironmentNode::run()
 
     std::shared_ptr<Object3D> goal_target;
     std::unique_ptr<TransformControls> transformControls;
-
-    KeyAdapter adapter(KeyAdapter::Mode::KEY_PRESSED, [&](const KeyEvent& evt)
-    {
-        switch (evt.key)
-        {
-        case Key::Q:
-            {
-                transformControls->setSpace(transformControls->getSpace() == "local" ? "world" : "local");
-                RCLCPP_INFO(get_logger(), "TransformControls space: %s", transformControls->getSpace().c_str());
-                break;
-            }
-        case Key::W:
-            {
-                transformControls->setMode("translate");
-                RCLCPP_INFO(get_logger(), "TransformControls mode: translate");
-                break;
-            }
-        case Key::E:
-            {
-                transformControls->setMode("rotate");
-                RCLCPP_INFO(get_logger(), "TransformControls mode: rotate");
-                break;
-            }
-        default:
-            break;
-        }
-    });
+    std::unique_ptr<TransformKeyListener> keyListener;
 
     if (goal_planning_)
     {
@@ -197,8 +173,8 @@ void KineEnvironmentNode::run()
 
         transformControls->addEventListener("dragging-changed", changeListener);
 
-
-        canvas.addKeyListener(adapter);
+        keyListener = std::make_unique<TransformKeyListener>(transformControls.get());
+        canvas.addKeyListener(*keyListener);
     }
 
     bool loopGhost = true;
@@ -302,10 +278,4 @@ void KineEnvironmentNode::run()
 }
 
 
-KineEnvironmentNode::~KineEnvironmentNode()
-{
-    if (thread_.joinable())
-    {
-        thread_.join();
-    }
-}
+KineEnvironmentNode::~KineEnvironmentNode() = default;

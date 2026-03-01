@@ -31,6 +31,8 @@ private:
     float elapsed_{0.0f};
     bool visible_{false};
     bool playing_{false};
+    float loopDelay_{1.0f};
+    float loopWait_{0.0f};
 };
 
 #endif //TRAJECTORYANIMATOR_HPP

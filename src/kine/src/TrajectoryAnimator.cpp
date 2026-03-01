@@ -1,7 +1,6 @@
 #include "TrajectoryAnimator.hpp"
 
 #include <algorithm>
-#include <cmath>
 
 TrajectoryAnimator::TrajectoryAnimator(std::shared_ptr<threepp::Robot> ghost)
     : ghost_(std::move(ghost))
@@ -15,6 +14,7 @@ void TrajectoryAnimator::loadTrajectory(const moveit_msgs::msg::DisplayTrajector
     times_.clear();
     visible_ = false;
     elapsed_ = 0.0f;
+    loopWait_ = 0.0f;
     playing_ = false;
 
     if (msg->trajectory.empty()) return;
@@ -56,7 +56,18 @@ void TrajectoryAnimator::update(float dt, bool loop)
         {
             if (loop)
             {
-                elapsed_ = std::fmod(elapsed_, duration);
+                // Wait before restarting
+                loopWait_ += dt;
+                if (loopWait_ >= loopDelay_)
+                {
+                    elapsed_ = 0.0f;
+                    loopWait_ = 0.0f;
+                } else
+                {
+                    // Hold on last frame while waiting
+                    applyJoints(points_.back());
+                    return;
+                }
             }
             else
             {
