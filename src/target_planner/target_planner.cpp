@@ -30,6 +30,8 @@ public:
         move_group_->setPlanningTime(10.0);
         move_group_->setGoalPositionTolerance(0.01);
         move_group_->setGoalOrientationTolerance(0.1);
+        move_group_->setMaxVelocityScalingFactor(1.0);
+        move_group_->setMaxAccelerationScalingFactor(1.0);
         RCLCPP_INFO(get_logger(), "TargetPlanner ready");
     }
 
