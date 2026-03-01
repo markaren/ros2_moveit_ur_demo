@@ -56,7 +56,11 @@ def generate_launch_description():
         executable='kine_environment',
         name='kine_environment',
         output='screen',
-        parameters=[{'use_sim_time': False, 'robot_description': robot_description_content}]
+        parameters=[{
+            'use_sim_time': False,
+            'robot_description': robot_description_content,
+            'goal_planning': False
+        }]
     )
 
     rviz_config_file = PathJoinSubstitution([

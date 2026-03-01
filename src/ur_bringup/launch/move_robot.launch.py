@@ -122,6 +122,7 @@ def generate_launch_description():
         parameters=[{
             "use_sim_time": False,
             "robot_description": robot_description_content,
+            "goal_planning": True
         }],
     )
 

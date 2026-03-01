@@ -32,7 +32,7 @@ void TrajectoryAnimator::loadTrajectory(const moveit_msgs::msg::DisplayTrajector
         }
         points_.push_back(std::move(joints));
 
-        double t = point.time_from_start.sec
+        const double t = point.time_from_start.sec
                  + point.time_from_start.nanosec * 1e-9;
         times_.push_back(static_cast<float>(t));
     }
@@ -49,7 +49,7 @@ void TrajectoryAnimator::update(float dt, bool loop)
 
     if (visible_ && playing_ && points_.size() >= 2 && !times_.empty())
     {
-        elapsed_ += 2 * dt;
+        elapsed_ += dt;
         const float duration = times_.back();
 
         if (elapsed_ >= duration)

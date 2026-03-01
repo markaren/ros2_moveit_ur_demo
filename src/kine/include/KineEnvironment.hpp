@@ -30,6 +30,7 @@ private:
     std::shared_ptr<Robot> robot_, ghost_;
     std::vector<std::string> jointNames_;
 
+    bool goal_planning_;
     std::unique_ptr<TrajectoryAnimator> animator_;
 
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;

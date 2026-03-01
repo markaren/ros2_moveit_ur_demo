@@ -47,25 +47,43 @@ KineEnvironmentNode::KineEnvironmentNode() : Node("kine_environment_node")
         throw std::runtime_error("Failed to load URDF robot");
     }
 
-    auto ghostMaterial = MeshBasicMaterial::create();
-    ghostMaterial->transparent = true;
-    ghostMaterial->opacity = 0.5f;
-    ghostMaterial->color = Color::orange;
-    ghostMaterial->depthWrite = false;
-    ghost_ = loadRobot(urdf_);
-    ghost_->showColliders(false);
-    ghost_->traverseType<Mesh>([&](Mesh& m)
-    {
-        m.setMaterial(ghostMaterial);
-    });
-
-    animator_ = std::make_unique<TrajectoryAnimator>(ghost_);
-
     RCLCPP_INFO(get_logger(), "Loaded URDF robot with %zu DOF", robot_->numDOF());
 
     const auto info = robot_->getArticulatedJointInfo();
     std::ranges::transform(info, std::back_inserter(jointNames_),
                            [](const auto& ji) { return ji.name; });
+
+
+    goal_planning_ = declare_parameter<bool>("goal_planning", false);
+
+    if (goal_planning_)
+    {
+        auto ghostMaterial = MeshBasicMaterial::create();
+        ghostMaterial->transparent = true;
+        ghostMaterial->opacity = 0.5f;
+        ghostMaterial->color = Color::orange;
+        ghostMaterial->depthWrite = false;
+        ghost_ = loadRobot(urdf_);
+        ghost_->showColliders(false);
+        ghost_->traverseType<Mesh>([&](Mesh& m)
+        {
+            m.setMaterial(ghostMaterial);
+        });
+
+        animator_ = std::make_unique<TrajectoryAnimator>(ghost_);
+
+        trajectory_sub_ = this->create_subscription<moveit_msgs::msg::DisplayTrajectory>(
+            "display_planned_path", 10,
+            [this](moveit_msgs::msg::DisplayTrajectory::SharedPtr msg)
+            {
+                animator_->loadTrajectory(msg);
+
+                RCLCPP_INFO(get_logger(), "Ghost trajectory received");
+            });
+
+        execute_pub_ = this->create_publisher<std_msgs::msg::Empty>(
+            "execute_plan", 10);
+    }
 
     // subscription: receive 3-element Float32MultiArray to set joint values
     joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
@@ -80,21 +98,9 @@ KineEnvironmentNode::KineEnvironmentNode() : Node("kine_environment_node")
             }
         });
 
-    trajectory_sub_ = this->create_subscription<moveit_msgs::msg::DisplayTrajectory>(
-           "display_planned_path", 10,
-           [this](moveit_msgs::msg::DisplayTrajectory::SharedPtr msg)
-           {
-               animator_->loadTrajectory(msg);
-
-               RCLCPP_INFO(get_logger(), "Ghost trajectory received");
-           });
-
     target_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
         "target_pose", 10);
 
-
-    execute_pub_ = this->create_publisher<std_msgs::msg::Empty>(
-        "execute_plan", 10);
 
     thread_ = std::thread(&KineEnvironmentNode::run, this);
 }
@@ -114,10 +120,8 @@ void KineEnvironmentNode::run()
     PerspectiveCamera camera(60, canvas.aspect(), 0.1, 1000);
 
     robot_->rotation.x = -math::PI / 2;
-    ghost_->rotation.x = -math::PI / 2;
-
     scene.add(robot_);
-    scene.add(ghost_);
+
 
     Box3 bb;
     bb.setFromObject(*robot_);
@@ -132,23 +136,13 @@ void KineEnvironmentNode::run()
 
     OrbitControls orbitControls(camera, canvas);
 
-    auto target = ghost_->getObjectByName(jointNames_.back())->clone();
-    // target->clone();
-    scene.add(target);
-
-    auto transform = robot_->getEndEffectorTransform();
-    target->position.setFromMatrixPosition(transform);
-    target->quaternion.setFromRotationMatrix(transform);
-    TransformControls transformControls(camera, canvas);
-    transformControls.attach(*target);
-    scene.add(transformControls);
-
     LambdaEventListener changeListener([&](const Event& event)
     {
         orbitControls.enabled = !std::any_cast<bool>(event.target);
     });
 
-    transformControls.addEventListener("dragging-changed", changeListener);
+    std::shared_ptr<Object3D> goal_target;
+    std::unique_ptr<TransformControls> transformControls;
 
     KeyAdapter adapter(KeyAdapter::Mode::KEY_PRESSED, [&](const KeyEvent& evt)
     {
@@ -156,24 +150,56 @@ void KineEnvironmentNode::run()
         {
         case Key::Q:
             {
-                transformControls.setSpace(transformControls.getSpace() == "local" ? "world" : "local");
+                transformControls->setSpace(transformControls->getSpace() == "local" ? "world" : "local");
+                RCLCPP_INFO(get_logger(), "TransformControls space: %s", transformControls->getSpace().c_str());
                 break;
             }
         case Key::W:
             {
-                transformControls.setMode("translate");
+                transformControls->setMode("translate");
+                RCLCPP_INFO(get_logger(), "TransformControls mode: translate");
                 break;
             }
         case Key::E:
             {
-                transformControls.setMode("rotate");
+                transformControls->setMode("rotate");
+                RCLCPP_INFO(get_logger(), "TransformControls mode: rotate");
                 break;
             }
         default:
             break;
         }
     });
-    canvas.addKeyListener(adapter);
+
+    if (goal_planning_)
+    {
+        ghost_->rotation.x = -math::PI / 2;
+        scene.add(ghost_);
+
+        goal_target = ghost_->getObjectByName(jointNames_.back())->clone();
+        auto targetMaterial = MeshBasicMaterial::create();
+        targetMaterial->transparent = true;
+        targetMaterial->opacity = 0.5f;
+        targetMaterial->color = Color::blue;
+        goal_target->traverseType<Mesh>([targetMaterial](Mesh& m)
+        {
+            m.setMaterial(targetMaterial);
+        });
+        scene.add(goal_target);
+
+        auto transform = robot_->getEndEffectorTransform();
+        goal_target->position.setFromMatrixPosition(transform);
+        goal_target->quaternion.setFromRotationMatrix(transform);
+
+        transformControls = std::make_unique<TransformControls>(camera, canvas);
+        transformControls->attach(*goal_target);
+        scene.add(*transformControls);
+
+        transformControls->addEventListener("dragging-changed", changeListener);
+
+
+        canvas.addKeyListener(adapter);
+    }
 
     bool loopGhost = true;
     bool planRequested = false;
@@ -190,56 +216,58 @@ void KineEnvironmentNode::run()
             robot_->showColliders(showCollisionGeometry);
         }
 
-        ImGui::Checkbox("Loop ghost animation", &loopGhost);
-
-        if (ImGui::Button("Plan goal"))
+        if (goal_planning_)
         {
-            geometry_msgs::msg::PoseStamped pose_msg;
-            pose_msg.header.stamp = this->now();
-            pose_msg.header.frame_id = "base_link";
+            ImGui::Checkbox("Loop ghost animation", &loopGhost);
 
-            // The robot is rotated -PI/2 on X, so transform target position back to ROS frame
-            const auto& pos = target->position;
-            pose_msg.pose.position.x = pos.x;
-            pose_msg.pose.position.y = -pos.z; // threepp Z -> ROS -Y
-            pose_msg.pose.position.z = pos.y; // threepp Y -> ROS Z
+            if (ImGui::Button("Plan goal"))
+            {
+                geometry_msgs::msg::PoseStamped pose_msg;
+                pose_msg.header.stamp = this->now();
+                pose_msg.header.frame_id = "base_link";
 
-            // Undo the -PI/2 X rotation applied to the robot in the scene
-            Quaternion correction;
-            correction.setFromAxisAngle({1, 0, 0}, math::PI / 2);
+                // The robot is rotated -PI/2 on X, so transform target position back to ROS frame
+                const auto& pos = goal_target->position;
+                pose_msg.pose.position.x = pos.x;
+                pose_msg.pose.position.y = -pos.z; // threepp Z -> ROS -Y
+                pose_msg.pose.position.z = pos.y; // threepp Y -> ROS Z
 
-            const auto& q = target->quaternion;
+                // Undo the -PI/2 X rotation applied to the robot in the scene
+                Quaternion correction;
+                correction.setFromAxisAngle(Vector3::X(), math::PI / 2);
 
-            Quaternion rosQuat;
-            rosQuat.multiplyQuaternions(correction, q);
+                const auto& q = goal_target->quaternion;
 
-            pose_msg.pose.orientation.x = rosQuat.x;
-            pose_msg.pose.orientation.y = rosQuat.y;
-            pose_msg.pose.orientation.z = rosQuat.z;
-            pose_msg.pose.orientation.w = rosQuat.w;
+                Quaternion rosQuat;
+                rosQuat.multiplyQuaternions(correction, q);
 
-            target_pose_pub_->publish(pose_msg);
-            planRequested = true;
+                pose_msg.pose.orientation.x = rosQuat.x;
+                pose_msg.pose.orientation.y = rosQuat.y;
+                pose_msg.pose.orientation.z = rosQuat.z;
+                pose_msg.pose.orientation.w = rosQuat.w;
+
+                target_pose_pub_->publish(pose_msg);
+                planRequested = true;
+            }
+
+            ImGui::BeginDisabled(!planRequested);
+            if (ImGui::Button("Execute"))
+            {
+                std_msgs::msg::Empty empty_msg;
+                execute_pub_->publish(empty_msg);
+                planRequested = false;
+                animator_->stop();
+                RCLCPP_INFO(get_logger(), "Execute requested");
+            }
+            ImGui::EndDisabled();
+
+            if (ImGui::Button("Reset gizmo"))
+            {
+                const auto transform = robot_->getEndEffectorTransform();
+                goal_target->position.setFromMatrixPosition(transform);
+                goal_target->quaternion.setFromRotationMatrix(transform);
+            }
         }
-
-        ImGui::BeginDisabled(!planRequested);
-        if (ImGui::Button("Execute"))
-        {
-            std_msgs::msg::Empty empty_msg;
-            execute_pub_->publish(empty_msg);
-            planRequested = false;
-            animator_->stop();
-            RCLCPP_INFO(get_logger(), "Execute requested");
-        }
-        ImGui::EndDisabled();
-
-        if (ImGui::Button("Reset gizmo"))
-        {
-            const auto transform = robot_->getEndEffectorTransform();
-            target->position.setFromMatrixPosition(transform);
-            target->quaternion.setFromRotationMatrix(transform);
-        }
-
         ImGui::End();
     });
 
@@ -259,7 +287,7 @@ void KineEnvironmentNode::run()
     {
         const auto dt = clock.getDelta();
 
-        animator_->update(dt, loopGhost);
+        if (animator_) animator_->update(dt, loopGhost);
         renderer.render(scene, camera);
 
         ui.render();
