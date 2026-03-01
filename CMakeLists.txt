@@ -6,19 +6,10 @@ project(ros2_ur_ws LANGUAGES C CXX)
 # colcon still drives the actual build.
 
 if (WIN32)
-    # this is only to help CLion find OpenSSL on Windows
-    find_package(OpenSSL QUIET)
-    if (NOT OpenSSL_FOUND)
-        message(STATUS "OpenSSL not found, trying to locate in pixi environment...")
-        set(OPENSSL_ROOT_DIR "C:/robostack/.pixi/envs/default/Library")
-        set(OPENSSL_USE_STATIC_LIBS FALSE)
-    endif ()
-
-    find_package(Bullet QUIET)
-    if (NOT Bullet_FOUND)
-        message(STATUS "Bullet3 not found, trying to locate in pixi environment...")
-        set(BULLET_ROOT "C:/robostack/.pixi/envs/jazzy/Library")
-    endif ()
+    list(APPEND CMAKE_PREFIX_PATH
+            "C:/robostack/.pixi/envs/default/Library"
+            "C:/robostack/.pixi/envs/jazzy/Library"
+    )
 endif ()
 
 find_package(ament_cmake REQUIRED)
