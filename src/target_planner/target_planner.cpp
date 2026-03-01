@@ -36,6 +36,13 @@ public:
     }
 
 private:
+    bool has_plan_{false};
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
+    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr execute_sub_;
+    std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
+    moveit::planning_interface::MoveGroupInterface::Plan last_plan_;
+
+
     void plan(const geometry_msgs::msg::PoseStamped& target)
     {
         RCLCPP_INFO(get_logger(),
@@ -83,12 +90,6 @@ private:
 
         has_plan_ = false;
     }
-
-    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
-    rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr execute_sub_;
-    std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
-    moveit::planning_interface::MoveGroupInterface::Plan last_plan_;
-    bool has_plan_;
 };
 
 int main(int argc, char** argv)
