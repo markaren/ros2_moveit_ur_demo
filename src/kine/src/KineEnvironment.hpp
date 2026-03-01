@@ -12,6 +12,7 @@
 #include <std_msgs/msg/empty.hpp>
 
 #include <moveit_msgs/msg/display_trajectory.hpp>
+#include <moveit_msgs/srv/get_position_ik.hpp>
 
 #include <threepp/objects/Robot.hpp>
 
@@ -24,13 +25,11 @@ class KineEnvironmentNode : public rclcpp::Node
 public:
     KineEnvironmentNode();
 
-    void run();
-
     ~KineEnvironmentNode() override;
 
 private:
     std::string urdf_;
-    std::shared_ptr<Robot> robot_, ghost_;
+    std::shared_ptr<Robot> robot_, planner_ghost_, ik_ghost_;
     std::vector<std::string> jointNames_;
 
     bool goal_planning_;
@@ -41,7 +40,12 @@ private:
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_pub_;
     rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr execute_pub_;
 
+	rclcpp::Client<moveit_msgs::srv::GetPositionIK>::SharedPtr ik_client_;
+
     std::jthread thread_;
+
+    void run();
+    void requestIK(const geometry_msgs::msg::Pose& target_pose);
 };
 
 #endif // KINEENVIRONMENT_HPP

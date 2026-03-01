@@ -23,13 +23,27 @@ using namespace threepp;
 using namespace std::chrono_literals;
 
 
-inline std::shared_ptr<Robot> loadRobot(const std::string& urdf)
+namespace
 {
-    URDFLoader urdfLoader;
-    urdfLoader.setGeometryLoader(std::make_shared<AssimpLoader>());
+    std::shared_ptr<Robot> loadRobot(const std::string& urdf)
+    {
+        URDFLoader urdfLoader;
+        urdfLoader.setGeometryLoader(std::make_shared<AssimpLoader>());
 
-    const auto share = ament_index_cpp::get_package_share_directory("ur_description");
-    return urdfLoader.parse(share, urdf);
+        const auto share = ament_index_cpp::get_package_share_directory("ur_description");
+        return urdfLoader.parse(share, urdf);
+    }
+
+    auto createGhostMaterial(const Color& color)
+    {
+        auto ghostMaterial = MeshBasicMaterial::create();
+        ghostMaterial->transparent = true;
+        ghostMaterial->opacity = 0.5f;
+        ghostMaterial->color = color;
+        ghostMaterial->depthWrite = false;
+
+        return ghostMaterial;
+    }
 }
 
 KineEnvironmentNode::KineEnvironmentNode() : Node("kine_environment_node")
@@ -60,19 +74,25 @@ KineEnvironmentNode::KineEnvironmentNode() : Node("kine_environment_node")
 
     if (goal_planning_)
     {
-        auto ghostMaterial = MeshBasicMaterial::create();
-        ghostMaterial->transparent = true;
-        ghostMaterial->opacity = 0.5f;
-        ghostMaterial->color = Color::orange;
-        ghostMaterial->depthWrite = false;
-        ghost_ = loadRobot(urdf_);
-        ghost_->showColliders(false);
-        ghost_->traverseType<Mesh>([&](Mesh& m)
+        ik_client_ = this->create_client<moveit_msgs::srv::GetPositionIK>("compute_ik");
+
+        auto plannerGhostMaterial = createGhostMaterial(Color::orange);
+        planner_ghost_ = loadRobot(urdf_);
+        planner_ghost_->showColliders(false);
+        planner_ghost_->traverseType<Mesh>([&](Mesh& m)
         {
-            m.setMaterial(ghostMaterial);
+            m.setMaterial(plannerGhostMaterial);
         });
 
-        animator_ = std::make_unique<TrajectoryAnimator>(ghost_);
+        auto ikGhostMaterial = createGhostMaterial(Color::blue);
+        ik_ghost_ = loadRobot(urdf_);
+        ik_ghost_->showColliders(false);
+        ik_ghost_->traverseType<Mesh>([&](Mesh& m)
+        {
+            m.setMaterial(ikGhostMaterial);
+        });
+
+        animator_ = std::make_unique<TrajectoryAnimator>(planner_ghost_);
 
         trajectory_sub_ = this->create_subscription<moveit_msgs::msg::DisplayTrajectory>(
             "display_planned_path", 10,
@@ -138,21 +158,51 @@ void KineEnvironmentNode::run()
 
     OrbitControls orbitControls(camera, canvas);
 
-    LambdaEventListener changeListener([&](const Event& event)
-    {
-        orbitControls.enabled = !std::any_cast<bool>(event.target);
-    });
 
     std::shared_ptr<Object3D> goal_target;
     std::unique_ptr<TransformControls> transformControls;
     std::unique_ptr<TransformKeyListener> keyListener;
 
+    LambdaEventListener draggingChanged([&](const Event& event)
+    {
+        const bool dragging = std::any_cast<bool>(event.target);
+        orbitControls.enabled = !dragging;
+        ik_ghost_->visible = dragging;
+    });
+
+    LambdaEventListener objectChanged([&](const Event&)
+    {
+
+        const auto& pos = goal_target->position;
+        const auto& q = goal_target->quaternion;
+
+        Quaternion correction;
+        correction.setFromAxisAngle(Vector3::X(), math::PI / 2);
+        Quaternion rosQuat;
+        rosQuat.multiplyQuaternions(correction, q);
+
+        geometry_msgs::msg::Pose pose;
+        pose.position.x = pos.x;
+        pose.position.y = -pos.z;
+        pose.position.z = pos.y;
+        pose.orientation.x = rosQuat.x;
+        pose.orientation.y = rosQuat.y;
+        pose.orientation.z = rosQuat.z;
+        pose.orientation.w = rosQuat.w;
+
+        requestIK(pose);
+    });
+
     if (goal_planning_)
     {
-        ghost_->rotation.x = -math::PI / 2;
-        scene.add(ghost_);
+        planner_ghost_->rotation.x = -math::PI / 2;
+        scene.add(planner_ghost_);
 
-        goal_target = ghost_->getObjectByName(jointNames_.back())->clone();
+        ik_ghost_->rotation.x = -math::PI / 2;
+        scene.add(ik_ghost_);
+        ik_ghost_->visible = false;
+
+        goal_target = planner_ghost_->getObjectByName(jointNames_.back())->clone();
         auto targetMaterial = MeshBasicMaterial::create();
         targetMaterial->transparent = true;
         targetMaterial->opacity = 0.5f;
@@ -171,7 +221,8 @@ void KineEnvironmentNode::run()
         transformControls->attach(*goal_target);
         scene.add(*transformControls);
 
-        transformControls->addEventListener("dragging-changed", changeListener);
+        transformControls->addEventListener("dragging-changed", draggingChanged);
+        transformControls->addEventListener("objectChange", objectChanged);
 
         keyListener = std::make_unique<TransformKeyListener>(transformControls.get());
         canvas.addKeyListener(*keyListener);
@@ -277,5 +328,40 @@ void KineEnvironmentNode::run()
     rclcpp::shutdown();
 }
 
+void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose)
+{
+    if (!ik_client_->wait_for_service(0s)) return;
+
+    auto request = std::make_shared<moveit_msgs::srv::GetPositionIK::Request>();
+    request->ik_request.group_name = "ur_manipulator";
+    request->ik_request.pose_stamped.header.frame_id = "base_link";
+    request->ik_request.pose_stamped.header.stamp = this->now();
+    request->ik_request.pose_stamped.pose = target_pose;
+    request->ik_request.avoid_collisions = false;
+
+    // Provide current joint state as seed for IK solver
+    auto& robot_state = request->ik_request.robot_state.joint_state;
+    robot_state.name = jointNames_;
+    robot_state.position.resize(ik_ghost_->numDOF());
+    for (size_t i = 0; i < ik_ghost_->numDOF(); ++i)
+    {
+        robot_state.position[i] = static_cast<double>(ik_ghost_->getJointValue(i));
+    }
+
+    ik_client_->async_send_request(request,
+                                   [this](rclcpp::Client<moveit_msgs::srv::GetPositionIK>::SharedFuture future)
+                                   {
+                                       auto response = future.get();
+                                       if (response->error_code.val == moveit_msgs::msg::MoveItErrorCodes::SUCCESS)
+                                       {
+                                           const auto& positions = response->solution.joint_state.position;
+                                           for (size_t i = 0; i < positions.size() && i < ik_ghost_->numDOF(); ++i)
+                                           {
+                                               ik_ghost_->setJointValue(i, static_cast<float>(positions[i]));
+                                           }
+
+                                       }
+                                   });
+}
 
 KineEnvironmentNode::~KineEnvironmentNode() = default;
