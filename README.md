@@ -91,7 +91,6 @@ channels = ["https://prefix.dev/robostack-jazzy"]
 
 [feature.jazzy.dependencies]
 ros-jazzy-desktop = "*"
-ros-jazzy-camera-calibration = "*"
 ros-jazzy-ur-description = "*"
 ros-jazzy-ur-moveit-config = "*"
 ros-jazzy-moveit = "*"
