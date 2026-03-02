@@ -94,7 +94,7 @@ def generate_launch_description():
     joint_trajectory_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["scaled_joint_trajectory_controller", "--controller-manager", "/controller_manager"],
+        arguments=["joint_trajectory_controller", "--controller-manager", "/controller_manager"],
         output="screen",
     )
 
@@ -143,13 +143,13 @@ def generate_launch_description():
         }],
     )
 
-    planner_node = Node(
-        package="target_planner",
-        executable="target_planner",
-        name="target_planner",
-        output="screen",
-        parameters=[{"use_sim_time": False}],
-    )
+    # planner_node = Node(
+    #     package="target_planner",
+    #     executable="target_planner",
+    #     name="target_planner",
+    #     output="screen",
+    #     parameters=[{"use_sim_time": False}],
+    # )
 
     rviz_config_file = PathJoinSubstitution(
         [FindPackageShare("ur_moveit_config"), "config", "moveit.rviz"]
@@ -173,7 +173,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         ur_type_arg, launch_rviz_arg,
-        planner_node,
+        # planner_node,
         static_tf, rsp_node,
         control_node,
         # Delay spawners to let controller_manager start
