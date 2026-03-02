@@ -100,7 +100,7 @@ def generate_launch_description():
 
     # MoveIt controller config for ros2_control
     moveit_controllers_yaml = PathJoinSubstitution(
-        [FindPackageShare("ur_bringup"), "config", "moveit_controllers2.yaml"]
+        [FindPackageShare("ur_bringup"), "config", "moveit_controllers.yaml"]
     )
 
     move_group = Node(

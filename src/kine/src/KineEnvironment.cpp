@@ -120,7 +120,12 @@ KineEnvironmentNode::KineEnvironmentNode() : Node("kine_environment_node")
 
             for (size_t i = 0; i < msg->position.size(); ++i)
             {
-                robot_->setJointValue(i, static_cast<float>(msg->position[i]));
+                auto it = std::ranges::find(jointNames_, msg->name[i]);
+                if (it != jointNames_.end())
+                {
+                    const auto idx = std::distance(jointNames_.begin(), it);
+                    robot_->setJointValue(idx, static_cast<float>(msg->position[i]));
+                }
             }
         });
 
