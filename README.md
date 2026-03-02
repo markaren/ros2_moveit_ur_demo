@@ -47,9 +47,14 @@ Pure URDF visualisation:
 ros2 launch ur_bringup display_robot.launch.py launch_rviz:=false|true
 ```
 
-URDF visualisation and MoveIt planning:
+URDF visualisation and MoveIt planning (fake_controller):
 ```
 ros2 launch ur_bringup move_robot.launch.py launch_rviz:=false|true
+```
+
+URDF visualisation and MoveIt planning (ros2_control):
+```
+ros2 launch ur_bringup move_robot_ros2control.launch.py launch_rviz:=false|true
 ```
 
 ## Requirements
