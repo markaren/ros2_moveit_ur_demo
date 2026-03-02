@@ -11,9 +11,9 @@ controller_manager:
 joint_trajectory_controller:
   ros__parameters:
     joints:
+      - elbow_joint
       - shoulder_pan_joint
       - shoulder_lift_joint
-      - elbow_joint
       - wrist_1_joint
       - wrist_2_joint
       - wrist_3_joint
