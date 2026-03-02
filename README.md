@@ -57,7 +57,7 @@ ros2 launch ur_bringup move_robot.launch.py launch_rviz:=false|true
 ### Linux
 
 ```bash
-sudo apt install ros-jazzy-control-msgs ros-jazzy-ur-description ros-jazzy-moveit
+sudo apt install ros-jazzy-control-msgs ros-jazzy-ur-description ros-jazzy-ur-movit-config ros-jazzy-moveit
 ```
 
 ### Windows
