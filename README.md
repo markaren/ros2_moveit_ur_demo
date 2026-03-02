@@ -47,3 +47,5 @@ On Windows, using the robostack virtual environment is recommended to ensure com
 ### Install RoboStack using Pixi
 
 See the [RoboStack installation guide](https://robostack.github.io/GettingStarted.html) for detailed instructions on setting up the virtual environment and installing ROS 2 packages.
+
+> Note: The (optional) CLion integration assumes robostack to be setup at `C:\robostack`.
