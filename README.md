@@ -28,6 +28,18 @@ using MoveIt's MoveGroupInterface, and executes it when triggered via the `execu
 A visualisation environment for URDF models that also allows users to publish target poses for the target_planner node.
 Listens to `/joint_states` for showing the current state of the robot. Also listens to `/display_planned_path` for showing planned paths.
 
+## Building
+
+Since this workspace uses a root CMakeLists.txt for IDE integration, 
+you need to specify the build directory when calling colcon from a terminal:
+
+```bash
+# Unix
+colcon build --symlink-install --base-paths src
+# Windows
+colcon build ---merge-install --base-paths src
+```
+
 ## Usage
 
 Pure URDF visualisation:
@@ -42,9 +54,16 @@ ros2 launch ur_bringup move_robot.launch.py launch_rviz:=false|true
 
 ## Requirements
 
-On Windows, using the robostack virtual environment is recommended to ensure compatibility with ROS 2 packages.
+### Linux
 
-### Install RoboStack using Pixi
+```bash
+sudo apt install ros-jazzy-control-msgs ros-jazzy-ur-description ros-jazzy-moveit
+```
+
+### Windows
+On Windows, using the [robostack](https://robostack.github.io/index.html) virtual environment is recommended to ensure compatibility with ROS 2 packages.
+
+#### Install RoboStack using Pixi
 
 See the [RoboStack installation guide](https://robostack.github.io/GettingStarted.html) for detailed instructions on setting up the virtual environment and installing ROS 2 packages.
 
