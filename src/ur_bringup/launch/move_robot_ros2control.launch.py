@@ -68,7 +68,7 @@ def generate_launch_description():
 
     # ros2_control controller manager
     ros2_controllers_yaml = PathJoinSubstitution(
-        [FindPackageShare("ur_bringup"), "config", "ros2_controllers.yaml"]
+        [FindPackageShare("ur_bringup"), "config", "ros2control_controllers.yaml"]
     )
 
     control_node = Node(
@@ -100,7 +100,7 @@ def generate_launch_description():
 
     # MoveIt controller config for ros2_control
     moveit_controllers_yaml = PathJoinSubstitution(
-        [FindPackageShare("ur_bringup"), "config", "moveit_controllers2.yaml"]
+        [FindPackageShare("ur_bringup"), "config", "ros2control_moveit_controllers.yaml"]
     )
 
     move_group = Node(
