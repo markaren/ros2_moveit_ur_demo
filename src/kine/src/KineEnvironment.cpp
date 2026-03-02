@@ -107,11 +107,15 @@ KineEnvironmentNode::KineEnvironmentNode() : Node("kine_environment_node")
             "execute_plan", 10);
     }
 
+    joint_pub_ =
+        this->create_publisher<sensor_msgs::msg::JointState>(goal_planning_ ? "joint_commands" : "joint_states", 10);
+
     // subscription: receive 3-element Float32MultiArray to set joint values
     joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
         "joint_states", 10,
         [this](sensor_msgs::msg::JointState::SharedPtr msg)
         {
+            std::lock_guard lock(robot_mutex_);
             if (robot_->numDOF() != jointNames_.size()) return;
 
             for (size_t i = 0; i < msg->position.size(); ++i)
@@ -172,7 +176,6 @@ void KineEnvironmentNode::run()
 
     LambdaEventListener objectChanged([&](const Event&)
     {
-
         const auto& pos = goal_target->position;
         const auto& q = goal_target->quaternion;
 
@@ -243,6 +246,40 @@ void KineEnvironmentNode::run()
             robot_->showColliders(showCollisionGeometry);
         }
 
+        if (ImGui::CollapsingHeader("Joints"))
+        {
+            const auto infos = robot_->getArticulatedJointInfo();
+            auto jointValues = robot_->jointValues();
+            bool jointsChanged = false;
+            for (auto i = 0; i < robot_->numDOF(); ++i)
+            {
+                const auto& info = infos[i];
+                const auto [min, max] = robot_->getJointRange(i, true);
+
+                if (info.type == Robot::JointType::Revolute)
+                {
+                    jointsChanged |= ImGui::SliderAngle(jointNames_[i].c_str(), &jointValues[i], min,
+                                                        max);
+                }
+                else
+                {
+                    jointsChanged |= ImGui::SliderFloat(jointNames_[i].c_str(), &jointValues[i], min,
+                                                        max);
+                }
+            }
+
+            if (jointsChanged)
+            {
+                sensor_msgs::msg::JointState js;
+                js.header.stamp = this->now();
+                js.name = jointNames_;
+                {
+                    js.position.resize(jointValues.size());
+                    std::ranges::copy(jointValues, js.position.begin());
+                }
+                joint_pub_->publish(js);
+            }
+        }
         if (goal_planning_)
         {
             ImGui::Checkbox("Loop ghost animation", &loopGhost);
@@ -361,7 +398,6 @@ void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose)
                                            {
                                                ik_ghost_->setJointValue(i, static_cast<float>(positions[i]));
                                            }
-
                                        }
                                    });
 }

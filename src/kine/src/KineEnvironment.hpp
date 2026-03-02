@@ -37,11 +37,13 @@ private:
 
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_sub_;
     rclcpp::Subscription<moveit_msgs::msg::DisplayTrajectory>::SharedPtr trajectory_sub_;
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr target_pose_pub_;
     rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr execute_pub_;
 
-	rclcpp::Client<moveit_msgs::srv::GetPositionIK>::SharedPtr ik_client_;
+    rclcpp::Client<moveit_msgs::srv::GetPositionIK>::SharedPtr ik_client_;
 
+    std::mutex robot_mutex_;
     std::jthread thread_;
 
     void run();

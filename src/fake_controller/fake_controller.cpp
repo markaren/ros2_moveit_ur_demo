@@ -73,6 +73,23 @@ public:
             std::bind(&FakeController::handle_cancel, this, std::placeholders::_1),
             std::bind(&FakeController::handle_accepted, this, std::placeholders::_1));
 
+
+        joint_cmd_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
+            "joint_commands", 10,
+            [this](sensor_msgs::msg::JointState::SharedPtr msg)
+            {
+                std::lock_guard lock(joint_mutex_);
+                for (size_t i = 0; i < msg->name.size(); ++i)
+                {
+                    auto it = jointIndexByName_.find(msg->name[i]);
+                    if (it != jointIndexByName_.end())
+                    {
+                        jointPositions_[it->second] = msg->position[i];
+                        jointVelocities_[it->second] = 0.0;
+                    }
+                }
+            });
+
         RCLCPP_INFO(get_logger(),
                     "FakeController ready — action: %s, joints: %zu, publish: %.0f Hz, exec: %.0f Hz, interp: %s",
                     action_name.c_str(), jointNames_.size(), publish_rate_hz_, execution_rate_hz_,
@@ -110,6 +127,7 @@ private:
     rclcpp_action::Server<FollowJT>::SharedPtr action_server_;
     rclcpp::TimerBase::SharedPtr publish_timer_;
     rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_pub_;
+    rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_cmd_sub_;
 
     // ================================================================
     //  Interpolation helpers
