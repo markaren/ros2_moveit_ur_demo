@@ -19,6 +19,18 @@ def generate_launch_description():
         description="Whether to launch RViz2",
     )
 
+    launch_jsp_arg = DeclareLaunchArgument(
+        "launch_jsp",
+        default_value="false",
+        description="Whether to launch the Joint State Publisher GUI",
+    )
+
+    launch_rsp_arg = DeclareLaunchArgument(
+        "launch_rsp",
+        default_value="true",
+        description="Whether to launch the Robot State Publisher",
+    )
+
     ur_type = LaunchConfiguration("ur_type")
 
     ur_config_path = PathJoinSubstitution([FindPackageShare("ur_description"), "config", ur_type])
@@ -40,7 +52,8 @@ def generate_launch_description():
     jsp_node = Node(
         package='joint_state_publisher_gui',
         executable='joint_state_publisher_gui',
-        name='joint_state_publisher_gui'
+        name='joint_state_publisher_gui',
+        condition=IfCondition(LaunchConfiguration("launch_jsp"))
     )
 
     rsp_node = Node(
@@ -48,7 +61,10 @@ def generate_launch_description():
         executable='robot_state_publisher',
         name='robot_state_publisher',
         output='screen',
-        parameters=[{'robot_description': robot_description_content}]
+        condition=IfCondition(LaunchConfiguration("launch_rsp")),
+        parameters=[{
+            'robot_description': robot_description_content
+        }]
     )
 
     kine_env_node = Node(
@@ -79,6 +95,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        ur_type_arg, launch_rviz_arg,
+        ur_type_arg, launch_rviz_arg, launch_jsp_arg, launch_rsp_arg,
         rsp_node, jsp_node, rviz_node, kine_env_node
     ])
