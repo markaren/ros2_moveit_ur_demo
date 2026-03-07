@@ -48,11 +48,18 @@ namespace
 
 KineEnvironmentNode::KineEnvironmentNode() : Node("kine_environment_node")
 {
-    urdf_ = declare_parameter<std::string>("robot_description", "");
+    auto parameters_client = std::make_shared<rclcpp::SyncParametersClient>(this, "robot_state_publisher");
+    if (!parameters_client->wait_for_service(std::chrono::seconds(5)))
+    {
+        RCLCPP_FATAL(get_logger(), "robot_state_publisher parameter service not available!");
+        throw std::runtime_error("robot_state_publisher parameter service not available");
+    }
+
+    urdf_ = parameters_client->get_parameters({"robot_description"})[0].as_string();
 
     if (urdf_.empty())
     {
-        RCLCPP_FATAL(get_logger(), "robot_description parameter is empty!");
+        RCLCPP_FATAL(get_logger(), "robot_description from robot_state_publisher is empty!");
         throw std::runtime_error("robot_description parameter is empty");
     }
 

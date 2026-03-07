@@ -7,11 +7,6 @@ from launch.substitutions import Command, FindExecutable, PathJoinSubstitution, 
 
 
 def generate_launch_description():
-    ur_type_arg = DeclareLaunchArgument(
-        "ur_type",
-        default_value="ur5e",
-        description="Which UR robot to display (e.g., ur3, ur5, ur5e, ur10, ur10e)",
-    )
 
     launch_rviz_arg = DeclareLaunchArgument(
         "launch_rviz",
@@ -31,8 +26,13 @@ def generate_launch_description():
         description="Whether to launch the Robot State Publisher",
     )
 
-    ur_type = LaunchConfiguration("ur_type")
+    ur_type_arg = DeclareLaunchArgument(
+        "ur_type",
+        default_value="ur5e",
+        description="Which UR robot to display, given launch_rsp (e.g., ur3, ur5, ur5e, ur10, ur10e)",
+    )
 
+    ur_type = LaunchConfiguration("ur_type")
     ur_config_path = PathJoinSubstitution([FindPackageShare("ur_description"), "config", ur_type])
     robot_description_content = Command(
         [
@@ -49,13 +49,6 @@ def generate_launch_description():
         ]
     )
 
-    jsp_node = Node(
-        package='joint_state_publisher_gui',
-        executable='joint_state_publisher_gui',
-        name='joint_state_publisher_gui',
-        condition=IfCondition(LaunchConfiguration("launch_jsp"))
-    )
-
     rsp_node = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -67,6 +60,13 @@ def generate_launch_description():
         }]
     )
 
+    jsp_node = Node(
+        package='joint_state_publisher_gui',
+        executable='joint_state_publisher_gui',
+        name='joint_state_publisher_gui',
+        condition=IfCondition(LaunchConfiguration("launch_jsp"))
+    )
+
     kine_env_node = Node(
         package='kine',
         executable='kine_environment',
@@ -74,23 +74,20 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'use_sim_time': False,
-            'robot_description': robot_description_content,
             'goal_planning': False
         }]
     )
-
-    rviz_config_file = PathJoinSubstitution([
-        FindPackageShare("ur_description"),
-        "rviz",
-        "view_robot.rviz"
-    ])
 
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz2',
         output='screen',
-        arguments=['-d', rviz_config_file],
+        arguments=['-d', PathJoinSubstitution([
+            FindPackageShare("ur_description"),
+            "rviz",
+            "view_robot.rviz"
+        ])],
         condition=IfCondition(LaunchConfiguration("launch_rviz")),
     )
 

@@ -31,7 +31,7 @@ Listens to `/joint_states` for showing the current state of the robot. Also list
 ## Building
 
 Since this workspace uses a root CMakeLists.txt for IDE integration, 
-you need to specify the build directory when calling colcon from a terminal:
+you need to specify the build directory when calling `colcon` from a terminal:
 
 ```bash
 # Unix
@@ -107,7 +107,6 @@ filelock = "*"
 # and can be activated using the `pixi run/shell -e <environment>` command.
 [environments]
 jazzy = { features = ["jazzy", "build"] }
-kilted = { features = ["kilted", "build"] }
 
 ### ROS Jazzy ####
 [feature.jazzy]
@@ -119,12 +118,6 @@ ros-jazzy-ur-description = "*"
 ros-jazzy-ur-moveit-config = "*"
 ros-jazzy-moveit = "*"
 
-### ROS Kilted ####
-[feature.kilted]
-channels = ["https://prefix.dev/robostack-kilted"]
-
-[feature.kilted.dependencies]
-ros-kilted-desktop = "*"
 ```
 
 > Note: The (optional) CLion integration assumes robostack to be setup at `C:\robostack`.
