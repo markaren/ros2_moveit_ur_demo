@@ -1,0 +1,3 @@
+FROM ros_ur_base:latest
+
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
