@@ -1,0 +1,78 @@
+name: ursim
+
+services:
+  ursim:
+    build:
+      context: ./docker_files
+      dockerfile: Dockerfile.ursim
+    environment:
+      - ROBOT_MODEL=UR5
+    ports:
+      - "6080:6080"
+      # UR robot control ports — needed so ur_driver (host network) can reach ursim
+      - "29999:29999"
+      - "30001-30004:30001-30004"
+      # 50001-50002 are NOT exposed: ur_driver (host-networked) listens on 50001;
+      # ursim connects outbound to reverse_ip:50001 — no inbound mapping needed
+    networks:
+      ur_net:
+        ipv4_address: 172.20.0.2
+
+
+  ur_driver:
+    build:
+      context: ./docker_files
+      dockerfile: Dockerfile.ur_driver
+    environment:
+      - ROBOT_IP=172.20.0.2
+      - UR_TYPE=ur5e
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    volumes:
+      - ./docker_files/driver_entrypoint.sh:/entrypoint.sh:ro
+    # Docker Desktop host networking: container uses Windows network stack directly
+    # Requires "Enable host networking" in Docker Desktop settings (already enabled)
+    networks:
+      ur_net:
+        ipv4_address: 172.20.0.3
+    # Needed for real-time scheduling
+    privileged: true
+    ulimits:
+      rtprio: 99
+      memlock:
+        soft: -1
+        hard: -1
+
+
+  ros2_dev:
+    build:
+      context: ./docker_files
+      dockerfile: Dockerfile.ros2_dev
+    environment:
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      # Points to the Windows host's VcXsrv — host.docker.internal resolves to
+      # the Windows host IP from inside a Docker Desktop container
+      - DISPLAY=host.docker.internal:0.0
+      - LIBGL_ALWAYS_INDIRECT=0
+    volumes:
+      # WSLg sockets for X11/Wayland GUI support
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /mnt/wslg:/mnt/wslg:rw
+      - ./docker_files/dev_entrypoint.sh:/entrypoint.sh:ro
+      # ROS2 workspace
+      - ./src:/ros2_ws/src:rw
+       # ignore host version of install/build to avoid conflicts with container build; container will have its own install/ from building the workspace
+      - /ros2_ws/src/install
+      - /ros2_ws/src/build
+    networks:
+      ur_net:
+        ipv4_address: 172.20.0.4
+    stdin_open: true
+    tty: true
+
+
+networks:
+  ur_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
