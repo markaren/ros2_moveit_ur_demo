@@ -44,17 +44,17 @@ colcon build ---merge-install --base-paths src
 
 Pure URDF visualisation:
 ```
-ros2 launch ur_bringup display_robot.launch.py launch_rviz:=false|true
+ros2 launch ur_bringup display_robot.launch.py launch_rviz:=false|true 
 ```
 
-URDF visualisation and MoveIt planning (fake_controller):
+URDF visualisation and MoveIt planning (fake controller):
 ```
 ros2 launch ur_bringup move_robot.launch.py launch_rviz:=false|true
 ```
 
-URDF visualisation and MoveIt planning (ros2_control):
+URDF visualisation and MoveIt planning (real robot/ URsim):
 ```
-ros2 launch ur_bringup move_robot_ros2control.launch.py launch_rviz:=false|true
+ros2 launch ur_bringup move_robot.launch.py fake_controller:=false launch_rviz:=false|true
 ```
 
 ## Requirements
