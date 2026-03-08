@@ -2,7 +2,7 @@
 
 A ROS2 workspace showcasing usage of MoveIt with UR robots.
 
-A Docker setup is included for users who want to interact with URsim or real hardware on Windows.
+A Docker setup is included for users who want to interact with URsim.
 See [DOCKER.md](doc/DOCKER.md) for instructions on using Docker.
 
 This repository also contains a `fake_controller` node that allows for testing MoveIt planning and 
@@ -18,7 +18,7 @@ compatibility with required ROS 2 packages. See [ROBOSTACK.md](doc/ROBOSTACK.md)
 A lightweight ROS 2 node that simulates a robot joint trajectory controller 
 without requiring real hardware or other controller packages like `ur_robot_driver`. 
 
-It replaces the functionality of `ros2_control_node` and its associated mock components and controllers.
+It replaces the functionality of `ros2_control` and its associated mock components and controllers.
 Necessary on Windows, where `ros2_control` support is currently limited.
 Use `ur_robot_driver` to target real hardware or URsim.
 
