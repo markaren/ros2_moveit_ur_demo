@@ -3,6 +3,10 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <moveit/move_group_interface/move_group_interface.h>
 
+#include <atomic>
+#include <mutex>
+#include <thread>
+
 class TargetPlanner : public rclcpp::Node
 {
 public:
@@ -12,12 +16,18 @@ public:
             "target_pose", 10,
             [this](geometry_msgs::msg::PoseStamped::SharedPtr msg)
             {
-                plan(*msg);
+                if (planning_.exchange(true))
+                {
+                    RCLCPP_WARN(get_logger(), "Planning already in progress, ignoring new target");
+                    return;
+                }
+                if (plan_thread_.joinable()) plan_thread_.join();
+                plan_thread_ = std::thread(&TargetPlanner::plan, this, *msg);
             });
 
         execute_sub_ = create_subscription<std_msgs::msg::Empty>(
             "execute_plan", 10,
-            [this](std_msgs::msg::Empty::SharedPtr /*msg*/)
+            [this](std_msgs::msg::Empty::SharedPtr)
             {
                 execute();
             });
@@ -35,13 +45,21 @@ public:
         RCLCPP_INFO(get_logger(), "TargetPlanner ready");
     }
 
+    ~TargetPlanner() override
+    {
+        if (plan_thread_.joinable()) plan_thread_.join();
+    }
+
 private:
-    bool has_plan_{false};
+    std::atomic<bool> has_plan_{false};
+    std::atomic<bool> planning_{false};
+    std::mutex plan_mutex_;
+    std::thread plan_thread_;
+
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
     rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr execute_sub_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
     moveit::planning_interface::MoveGroupInterface::Plan last_plan_;
-
 
     void plan(const geometry_msgs::msg::PoseStamped& target)
     {
@@ -53,10 +71,15 @@ private:
 
         move_group_->setPoseTarget(target.pose, "tool0");
 
-        auto result = move_group_->plan(last_plan_);
+        moveit::planning_interface::MoveGroupInterface::Plan candidate;
+        const auto result = move_group_->plan(candidate);
 
         if (result == moveit::core::MoveItErrorCode::SUCCESS)
         {
+            {
+                std::lock_guard lock(plan_mutex_);
+                last_plan_ = std::move(candidate);
+            }
             has_plan_ = true;
             RCLCPP_INFO(get_logger(), "Plan succeeded (%zu points). Publish to 'execute_plan' to execute.",
                         last_plan_.trajectory.joint_trajectory.points.size());
@@ -66,6 +89,8 @@ private:
             has_plan_ = false;
             RCLCPP_WARN(get_logger(), "Planning failed (error code: %d)", result.val);
         }
+
+        planning_ = false;
     }
 
     void execute()
@@ -76,8 +101,15 @@ private:
             return;
         }
 
+        moveit::planning_interface::MoveGroupInterface::Plan plan_copy;
+        {
+            std::lock_guard lock(plan_mutex_);
+            plan_copy = last_plan_;
+            has_plan_ = false;
+        }
+
         RCLCPP_INFO(get_logger(), "Executing plan...");
-        auto result = move_group_->execute(last_plan_);
+        const auto result = move_group_->execute(plan_copy);
 
         if (result == moveit::core::MoveItErrorCode::SUCCESS)
         {
@@ -87,8 +119,6 @@ private:
         {
             RCLCPP_ERROR(get_logger(), "Execution failed (error code: %d)", result.val);
         }
-
-        has_plan_ = false;
     }
 };
 
