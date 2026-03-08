@@ -78,6 +78,7 @@ public:
             "joint_commands", 10,
             [this](sensor_msgs::msg::JointState::SharedPtr msg)
             {
+                if (msg->position.size() < msg->name.size()) return;
                 std::lock_guard lock(joint_mutex_);
                 for (size_t i = 0; i < msg->name.size(); ++i)
                 {
@@ -307,7 +308,7 @@ private:
                 // Zero out velocities on cancel
                 {
                     std::lock_guard lock(joint_mutex_);
-                    std::fill(jointVelocities_.begin(), jointVelocities_.end(), 0.0);
+                    std::ranges::fill(jointVelocities_, 0.0);
                 }
                 result->error_code = FollowJT::Result::SUCCESSFUL; // cancel is not an error
                 goal_handle->canceled(result);
@@ -333,25 +334,8 @@ private:
                 apply_state(traj.points.back().positions,
                             have_velocities ? traj.points.back().velocities : zero_vel);
 
-                // Check goal tolerances if provided
-                bool within_tolerance = true;
-                if (!goal->goal_tolerance.empty())
-                {
-                    std::lock_guard lock(joint_mutex_);
-                    for (const auto& tol : goal->goal_tolerance)
-                    {
-                        auto it = jointIndexByName_.find(tol.name);
-                        if (it == jointIndexByName_.end()) continue;
-                        // We're a fake controller, so we always hit the target exactly.
-                        // But log the tolerances for debugging.
-                        RCLCPP_DEBUG(get_logger(), "Goal tolerance for '%s': position=%.6f",
-                                     tol.name.c_str(), tol.position);
-                    }
-                }
-
-                result->error_code = within_tolerance
-                                         ? FollowJT::Result::SUCCESSFUL
-                                         : FollowJT::Result::GOAL_TOLERANCE_VIOLATED;
+                // Fake controller always hits the target exactly — no tolerance check needed.
+                result->error_code = FollowJT::Result::SUCCESSFUL;
                 goal_handle->succeed(result);
 
                 const double total_s = (now() - start_time).seconds();
@@ -436,10 +420,7 @@ int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<FakeController>();
-    rclcpp::executors::MultiThreadedExecutor executor;
-    executor.add_node(node);
-    executor.spin();
-    node.reset();
+    rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;
 }
