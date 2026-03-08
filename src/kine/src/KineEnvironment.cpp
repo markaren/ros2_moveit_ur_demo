@@ -12,11 +12,11 @@
 #include <threepp/renderers/GLRenderer.hpp>
 #include <threepp/renderers/GLRenderTarget.hpp>
 #include <threepp/scenes/Scene.hpp>
-#include <threepp/extras/imgui/ImguiContext.hpp>
 #include <threepp/loaders/URDFLoader.hpp>
 #include <threepp/controls/TransformControls.hpp>
 #include <threepp/materials/MeshBasicMaterial.hpp>
 
+#include "KineUI.hpp"
 #include "TransformKeyListener.hpp"
 
 using namespace threepp;
@@ -32,6 +32,26 @@ namespace
 
         const auto share = ament_index_cpp::get_package_share_directory("ur_description");
         return urdfLoader.parse(share, urdf);
+    }
+
+    geometry_msgs::msg::Pose toRosPose(const Vector3& pos, const Quaternion& q)
+    {
+        Quaternion correction;
+        correction.setFromAxisAngle(Vector3::X(), math::PI / 2);
+
+        Quaternion rosQuat;
+        rosQuat.multiplyQuaternions(correction, q);
+
+        geometry_msgs::msg::Pose pose;
+        pose.position.x = pos.x;
+        pose.position.y = -pos.z;
+        pose.position.z = pos.y;
+        pose.orientation.x = rosQuat.x;
+        pose.orientation.y = rosQuat.y;
+        pose.orientation.z = rosQuat.z;
+        pose.orientation.w = rosQuat.w;
+
+        return pose;
     }
 
     auto createGhostMaterial(const Color& color)
@@ -175,7 +195,7 @@ void KineEnvironmentNode::run()
     OrbitControls orbitControls(camera, canvas);
 
 
-    std::shared_ptr<Object3D> goal_target;
+    std::shared_ptr<Object3D> targetObject;
     std::unique_ptr<TransformControls> transformControls;
     std::unique_ptr<TransformKeyListener> keyListener;
 
@@ -188,24 +208,7 @@ void KineEnvironmentNode::run()
 
     LambdaEventListener objectChanged([&](const Event&)
     {
-        const auto& pos = goal_target->position;
-        const auto& q = goal_target->quaternion;
-
-        Quaternion correction;
-        correction.setFromAxisAngle(Vector3::X(), math::PI / 2);
-        Quaternion rosQuat;
-        rosQuat.multiplyQuaternions(correction, q);
-
-        geometry_msgs::msg::Pose pose;
-        pose.position.x = pos.x;
-        pose.position.y = -pos.z;
-        pose.position.z = pos.y;
-        pose.orientation.x = rosQuat.x;
-        pose.orientation.y = rosQuat.y;
-        pose.orientation.z = rosQuat.z;
-        pose.orientation.w = rosQuat.w;
-
-        requestIK(pose);
+        requestIK(toRosPose(targetObject->position, targetObject->quaternion));
     });
 
     if (goal_planning_)
@@ -217,23 +220,20 @@ void KineEnvironmentNode::run()
         scene.add(ik_ghost_);
         ik_ghost_->visible = false;
 
-        goal_target = planner_ghost_->getObjectByName(jointNames_.back())->clone();
-        auto targetMaterial = MeshBasicMaterial::create();
-        targetMaterial->transparent = true;
-        targetMaterial->opacity = 0.5f;
-        targetMaterial->color = Color::blue;
-        goal_target->traverseType<Mesh>([targetMaterial](Mesh& m)
+        targetObject = planner_ghost_->getObjectByName(jointNames_.back())->clone();
+        auto targetMaterial = createGhostMaterial(Color::blue);
+        targetObject->traverseType<Mesh>([mat = std::move(targetMaterial)](Mesh& m)
         {
-            m.setMaterial(targetMaterial);
+            m.setMaterial(mat);
         });
-        scene.add(goal_target);
+        scene.add(targetObject);
 
         auto transform = robot_->getEndEffectorTransform();
-        goal_target->position.setFromMatrixPosition(transform);
-        goal_target->quaternion.setFromRotationMatrix(transform);
+        targetObject->position.setFromMatrixPosition(transform);
+        targetObject->quaternion.setFromRotationMatrix(transform);
 
         transformControls = std::make_unique<TransformControls>(camera, canvas);
-        transformControls->attach(*goal_target);
+        transformControls->attach(*targetObject);
         scene.add(*transformControls);
 
         transformControls->addEventListener("dragging-changed", draggingChanged);
@@ -243,111 +243,8 @@ void KineEnvironmentNode::run()
         canvas.addKeyListener(*keyListener);
     }
 
-    bool loopGhost = true;
-    bool planRequested = false;
-    bool showCollisionGeometry = false;
-    robot_->showColliders(showCollisionGeometry);
-    ImguiFunctionalContext ui(canvas, [&]
-    {
-        ImGui::SetNextWindowPos({});
-        ImGui::SetNextWindowSize({});
-
-        ImGui::Begin("Controls");
-        if (ImGui::Checkbox("Show Collision Geometry", &showCollisionGeometry))
-        {
-            robot_->showColliders(showCollisionGeometry);
-        }
-
-        if (ImGui::CollapsingHeader("Joints"))
-        {
-            const auto infos = robot_->getArticulatedJointInfo();
-            auto jointValues = robot_->jointValues();
-            bool jointsChanged = false;
-            for (auto i = 0; i < robot_->numDOF(); ++i)
-            {
-                const auto& info = infos[i];
-                const auto [min, max] = robot_->getJointRange(i, true);
-
-                if (info.type == Robot::JointType::Revolute)
-                {
-                    jointsChanged |= ImGui::SliderAngle(jointNames_[i].c_str(), &jointValues[i], min,
-                                                        max);
-                }
-                else
-                {
-                    jointsChanged |= ImGui::SliderFloat(jointNames_[i].c_str(), &jointValues[i], min,
-                                                        max);
-                }
-            }
-
-            if (jointsChanged)
-            {
-                sensor_msgs::msg::JointState js;
-                js.header.stamp = this->now();
-                js.name = jointNames_;
-                {
-                    js.position.resize(jointValues.size());
-                    std::ranges::copy(jointValues, js.position.begin());
-                }
-                joint_pub_->publish(js);
-            }
-        }
-        if (goal_planning_)
-        {
-            ImGui::Checkbox("Loop ghost animation", &loopGhost);
-
-            if (ImGui::Button("Plan goal"))
-            {
-                geometry_msgs::msg::PoseStamped pose_msg;
-                pose_msg.header.stamp = this->now();
-                pose_msg.header.frame_id = "base_link";
-
-                // The robot is rotated -PI/2 on X, so transform target position back to ROS frame
-                const auto& pos = goal_target->position;
-                pose_msg.pose.position.x = pos.x;
-                pose_msg.pose.position.y = -pos.z; // threepp Z -> ROS -Y
-                pose_msg.pose.position.z = pos.y; // threepp Y -> ROS Z
-
-                // Undo the -PI/2 X rotation applied to the robot in the scene
-                Quaternion correction;
-                correction.setFromAxisAngle(Vector3::X(), math::PI / 2);
-
-                const auto& q = goal_target->quaternion;
-
-                Quaternion rosQuat;
-                rosQuat.multiplyQuaternions(correction, q);
-
-                pose_msg.pose.orientation.x = rosQuat.x;
-                pose_msg.pose.orientation.y = rosQuat.y;
-                pose_msg.pose.orientation.z = rosQuat.z;
-                pose_msg.pose.orientation.w = rosQuat.w;
-
-                target_pose_pub_->publish(pose_msg);
-                planRequested = true;
-            }
-
-            ImGui::BeginDisabled(!planRequested);
-            if (ImGui::Button("Execute"))
-            {
-                std_msgs::msg::Empty empty_msg;
-                execute_pub_->publish(empty_msg);
-                planRequested = false;
-                animator_->stop();
-                RCLCPP_INFO(get_logger(), "Execute requested");
-            }
-            ImGui::EndDisabled();
-
-            if (ImGui::Button("Reset gizmo"))
-            {
-                const auto transform = robot_->getEndEffectorTransform();
-                goal_target->position.setFromMatrixPosition(transform);
-                goal_target->quaternion.setFromRotationMatrix(transform);
-
-                ik_ghost_->setJointValues(robot_->jointValues());
-            }
-        }
-        ImGui::End();
-    });
+    robot_->showColliders(false);
+    KineUI ui(canvas, robot_, robot_mutex_, jointNames_, goal_planning_);
 
     IOCapture capture{};
     capture.preventMouseEvent = [] { return ImGui::GetIO().WantCaptureMouse; };
@@ -365,9 +262,51 @@ void KineEnvironmentNode::run()
     {
         const auto dt = clock.getDelta();
 
-        if (animator_) animator_->update(dt, loopGhost);
-        renderer.render(scene, camera);
+        if (animator_) animator_->update(dt, ui.loopGhost());
 
+        if (const auto show = ui.consumeCollisionGeometryChange())
+        {
+            robot_->showColliders(*show);
+        }
+
+        if (const auto jointValues = ui.consumeJointChange())
+        {
+            sensor_msgs::msg::JointState js;
+            js.header.stamp = this->now();
+            js.name = jointNames_;
+            js.position.resize(jointValues->size());
+            std::ranges::copy(*jointValues, js.position.begin());
+            joint_pub_->publish(js);
+        }
+
+        if (goal_planning_)
+        {
+            if (ui.consumePlanRequest())
+            {
+                geometry_msgs::msg::PoseStamped pose_msg;
+                pose_msg.header.stamp = this->now();
+                pose_msg.header.frame_id = "base_link";
+                pose_msg.pose = toRosPose(targetObject->position, targetObject->quaternion);
+                target_pose_pub_->publish(pose_msg);
+            }
+
+            if (ui.consumeExecuteRequest())
+            {
+                execute_pub_->publish(std_msgs::msg::Empty{});
+                animator_->stop();
+                RCLCPP_INFO(get_logger(), "Execute requested");
+            }
+
+            if (ui.consumeResetGizmoRequest())
+            {
+                const auto transform = robot_->getEndEffectorTransform();
+                targetObject->position.setFromMatrixPosition(transform);
+                targetObject->quaternion.setFromRotationMatrix(transform);
+                ik_ghost_->setJointValues(robot_->jointValues());
+            }
+        }
+
+        renderer.render(scene, camera);
         ui.render();
 
         if (!rclcpp::ok())

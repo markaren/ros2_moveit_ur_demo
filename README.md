@@ -85,10 +85,9 @@ Some commands that you often need to run are:
 
 ```bash
 docker compose up --build
-docker exec -it docker-ros2_dev-1 bash -c "cd ros2_ws && bash"
+docker exec -it ursim-ros2_dev-1 bash -c "cd ros2_ws && bash"
 
-colcon build --symlink-install --base-paths src # unix
-colcon build --expmerge-install --base-paths src  # windows
+colcon build --symlink-install --base-paths src
 
 ros2 topic echo /joint_states --once
 
