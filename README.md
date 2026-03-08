@@ -7,7 +7,8 @@ Supports three execution targets:
 - **URsim** — UR's official robot simulator (Docker, Linux)
 - **Real hardware** — via `ur_robot_driver` running somewhere on the network.
 
-See [DOCKER.md](doc/DOCKER.md) for Docker/URsim setup and [ROBOSTACK.md](doc/ROBOSTACK.md) for Windows setup.
+See [DOCKER.md](doc/DOCKER.md) for Docker/URsim setup and [ROBOSTACK.md](doc/ROBOSTACK.md) 
+for Windows setup.
 
 > **Windows note:** URsim requires the Docker setup.
 
@@ -17,13 +18,24 @@ See [DOCKER.md](doc/DOCKER.md) for Docker/URsim setup and [ROBOSTACK.md](doc/ROB
 
 ### `fake_controller`
 Simulates a UR joint trajectory controller without real hardware or `ros2_control`.
-Accepts `FollowJointTrajectory` action goals, interpolates joint positions over time, and publishes them on `/joint_states` — giving MoveIt a complete plan-and-execute loop in simulation.
+Accepts `FollowJointTrajectory` action goals, interpolates joint positions over time, 
+and publishes them on `/joint_states` — giving MoveIt a complete plan-and-execute loop 
+in simulation.
 
 ### `target_planner`
-Subscribes to `target_pose` (`geometry_msgs/PoseStamped`), plans a collision-free trajectory with MoveIt, and executes it on receipt of a message on `execute_plan`.
+Subscribes to `target_pose` (`geometry_msgs/PoseStamped`), plans a collision-free 
+trajectory with MoveIt, and executes it on receipt of a message on `execute_plan`.
 
 ### `kine_environment`
-3D visualiser for URDF robot models. Subscribes to `/joint_states` to reflect the current robot state and to `/display_planned_path` to preview planned trajectories. In goal-planning mode, provides an interactive gizmo for setting target poses.
+3D visualiser for URDF robot models. Subscribes to `/joint_states` to reflect the 
+current robot state and to `/display_planned_path` to preview planned trajectories. 
+In goal-planning mode, provides an interactive gizmo for setting target poses.
+
+#### Gizmo controls
+
+**Q** — toggle between world/robot frame <br>
+**W** — set gizmo mode to translation <br>
+**E** — set gizmo mode to rotation <br>
 
 ---
 
