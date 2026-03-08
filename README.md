@@ -3,12 +3,12 @@
 A ROS2 workspace showcasing usage of MoveIt with UR robots.
 
 This repository contains a `fake_controller` node that allows for testing MoveIt planning and execution without requiring real robots or URsim.
-Works on both Linux and Windows, but Windows users must robostack to ensure compatibility with ROS 2 packages. See [ROBOSTACK.md](ROBOSTACK.md) for more details.
+Works on both Linux and Windows, but Windows users must robostack to ensure compatibility with ROS 2 packages. See [ROBOSTACK.md](doc/ROBOSTACK.md) for more details.
 
 > Note: The (optional) CLion integration assumes robostack to be set up at `C:\robostack`.
 
 A Docker setup is also included for users who want to interact with URsim or real hardware on Windows. 
-See [DOCKER.md](DOCKER.md) for instructions on using Docker.
+See [DOCKER.md](doc/DOCKER.md) for instructions on using Docker.
 
 ## Overview of Nodes in the packages
 
@@ -74,10 +74,10 @@ sudo apt install ros-jazzy-control-msgs ros-jazzy-ur-description ros-jazzy-ur-mo
 
 ### Windows
 On Windows, using the [robostack](https://robostack.github.io/index.html) virtual environment is recommended to ensure compatibility with ROS 2 packages.
-See [ROBOSTACK.md](ROBOSTACK.md) for more details.
+See [ROBOSTACK.md](doc/ROBOSTACK.md) for more details.
 
 However, native Windows support is only for interacting with the `fake_controller` node. To interact with URsim or real hardware, 
-you will need to use the provided Docker setup or set up a Linux environment. See [DOCKER.md](DOCKER.md) for instructions on using Docker.
+you will need to use the provided Docker setup or set up a Linux environment. See [DOCKER.md](doc/DOCKER.md) for instructions on using Docker.
 
 # TLDR;
 
@@ -96,3 +96,8 @@ source install/setup.sh
 ros2 launch ur_bringup move_robot.launch.py fake_controller:=true launch_rviz:=false
 ros2 launch ur_bringup move_robot.launch.py fake_controller:=false launch_rviz:=false
 ```
+
+
+![](doc/screenshots/kine_control.png)
+![](doc/screenshots/ursim.png)
+![](doc/screenshots/external_control.png)
