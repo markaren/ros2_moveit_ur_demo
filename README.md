@@ -1,107 +1,102 @@
-# Moveit + UR robots demo
+# MoveIt + UR Robots Demo
 
-A ROS2 workspace showcasing usage of MoveIt with UR robots.
+A ROS 2 workspace demonstrating MoveIt motion planning with Universal Robots (UR) arms.
 
-A Docker setup is included for users who want to interact with URsim.
-See [DOCKER.md](doc/DOCKER.md) for instructions on using Docker.
+Supports three execution targets:
+- **Fake controller** — fully simulated, no hardware required (Linux and Windows)
+- **URsim** — UR's official robot simulator (Docker, Linux)
+- **Real hardware** — via `ur_robot_driver` running somewhere on the network.
 
-This repository also contains a `fake_controller` node that allows for testing MoveIt planning and 
-execution without requiring real robots or URsim.
-Works on both Linux and Windows, but Windows users must use [robostack](https://robostack.github.io/index.html) to ensure
-compatibility with required ROS 2 packages. See [ROBOSTACK.md](doc/ROBOSTACK.md) for more details.
+See [DOCKER.md](doc/DOCKER.md) for Docker/URsim setup and [ROBOSTACK.md](doc/ROBOSTACK.md) for Windows setup.
 
-> Note: The (optional) CLion integration assumes robostack to be set up at `C:\robostack`.
+> **Windows note:** URsim requires the Docker setup.
 
-## Overview of Nodes in the packages
+---
 
-### fake_controller
-A lightweight ROS 2 node that simulates a robot joint trajectory controller 
-without requiring real hardware or other controller packages like `ur_robot_driver`. 
+## Nodes
 
-It replaces the functionality of `ros2_control` and its associated mock components and controllers.
-Necessary on Windows, where `ros2_control` support is currently limited.
-Use `ur_robot_driver` to target real hardware or URsim.
+### `fake_controller`
+Simulates a UR joint trajectory controller without real hardware or `ros2_control`.
+Accepts `FollowJointTrajectory` action goals, interpolates joint positions over time, and publishes them on `/joint_states` — giving MoveIt a complete plan-and-execute loop in simulation.
 
-`fake_controller` accepts FollowJointTrajectory action goals and interpolates joint positions over time,
-publishing the resulting joint states on `/joint_states`.
-This allows MoveIt to plan and "execute" trajectories in a purely simulated environment.
+### `target_planner`
+Subscribes to `target_pose` (`geometry_msgs/PoseStamped`), plans a collision-free trajectory with MoveIt, and executes it on receipt of a message on `execute_plan`.
 
+### `kine_environment`
+3D visualiser for URDF robot models. Subscribes to `/joint_states` to reflect the current robot state and to `/display_planned_path` to preview planned trajectories. In goal-planning mode, provides an interactive gizmo for setting target poses.
 
-### target_planner
-
-target_planner listens for a target pose on the `target_pose` topic, plans a collision-free trajectory 
-using MoveIt's MoveGroupInterface, and executes it when triggered via the `execute_plan` topic.
-
-### kine_environment
-
-A visualisation environment for URDF models that also allows users to publish target poses for the target_planner node.
-Listens to `/joint_states` for showing the current state of the robot. Also listens to `/display_planned_path` for showing planned paths.
-
-## Building
-
-Since this workspace uses a root CMakeLists.txt for IDE integration, 
-you need to specify the build directory when calling `colcon` from a terminal:
-
-```bash
-# Unix
-colcon build --symlink-install --base-paths src
-# Windows
-colcon build --merge-install --base-paths src
-```
-
-## Usage
-
-Pure URDF visualisation:
-```
-ros2 launch ur_bringup display_robot.launch.py launch_rviz:=false|true 
-```
-
-URDF visualisation and MoveIt planning (fake controller):
-```
-ros2 launch ur_bringup move_robot.launch.py launch_rviz:=false|true
-```
-
-URDF visualisation and MoveIt planning (real robot/ URsim):
-```
-ros2 launch ur_bringup move_robot.launch.py fake_controller:=false launch_rviz:=false|true
-```
+---
 
 ## Requirements
 
 ### Linux
-
 ```bash
-sudo apt install ros-jazzy-control-msgs ros-jazzy-ur-description ros-jazzy-ur-movit-config ros-jazzy-moveit
+sudo apt install ros-jazzy-control-msgs ros-jazzy-ur-description ros-jazzy-ur-moveit-config ros-jazzy-moveit
 ```
-
-Or just use the provided Docker setup, which is based on ROS 2 Jazzy and includes all necessary packages.
+Or use the provided Docker image, which includes all dependencies.
 
 ### Windows
-On Windows, using the [robostack](https://robostack.github.io/index.html) virtual environment is recommended to ensure compatibility with ROS 2 packages.
-See [ROBOSTACK.md](doc/ROBOSTACK.md) for more details.
+Install [robostack](https://robostack.github.io/index.html) and follow [ROBOSTACK.md](doc/ROBOSTACK.md).
+The optional CLion integration assumes robostack is installed at `C:\robostack`.
 
-However, native Windows support is only for interacting with the `fake_controller` node. To interact with URsim or real hardware, 
-you will need to use the provided Docker setup or set up a Linux environment. See [DOCKER.md](doc/DOCKER.md) for instructions on using Docker.
+---
 
-# TLDR;
+## Building
 
-Some commands that you often need to run are:
+The workspace has a root `CMakeLists.txt` for IDE integration, so pass `--base-paths src` to colcon:
 
 ```bash
-docker compose up --build
-docker exec -it ursim-ros2_dev-1 bash -c "cd ros2_ws && bash"
-
+# Linux
 colcon build --symlink-install --base-paths src
 
-ros2 topic echo /joint_states --once
+# Windows
+colcon build --merge-install --base-paths src
+```
 
-source install/setup.sh
+---
 
-ros2 launch ur_bringup move_robot.launch.py fake_controller:=true launch_rviz:=false
+## Usage
+
+**URDF visualisation only:**
+```bash
+ros2 launch ur_bringup display_robot.launch.py launch_rviz:=false
+```
+
+**MoveIt planning + fake controller (no hardware needed):**
+```bash
+ros2 launch ur_bringup move_robot.launch.py launch_rviz:=false
+```
+
+**MoveIt planning + real robot or URsim:**
+```bash
 ros2 launch ur_bringup move_robot.launch.py fake_controller:=false launch_rviz:=false
 ```
 
+---
 
-![](doc/screenshots/kine_control.png)
-![](doc/screenshots/ursim.png)
-![](doc/screenshots/external_control.png)
+## Quick reference
+
+```bash
+# Start Docker environment
+docker compose up --build
+docker exec -it ursim-ros2_dev-1 bash -c "cd ros2_ws && bash"
+
+# Build and source
+colcon build --symlink-install --base-paths src
+source install/setup.sh
+
+# Check connectivity (sometimes nothing appears, try restarting container or resetting the daemon)
+ros2 topic echo /joint_states --once
+
+# Launch (fake controller)
+ros2 launch ur_bringup move_robot.launch.py fake_controller:=true launch_rviz:=false
+
+# Launch (URsim / real hardware)
+ros2 launch ur_bringup move_robot.launch.py fake_controller:=false launch_rviz:=false
+```
+
+---
+
+![kine environment](doc/screenshots/kine_control.png)
+![URsim](doc/screenshots/ursim.png)
+![External control](doc/screenshots/external_control.png)
