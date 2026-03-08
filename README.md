@@ -44,7 +44,7 @@ you need to specify the build directory when calling `colcon` from a terminal:
 # Unix
 colcon build --symlink-install --base-paths src
 # Windows
-colcon build ---merge-install --base-paths src
+colcon build --merge-install --base-paths src
 ```
 
 ## Usage
@@ -88,7 +88,7 @@ docker compose up --build
 docker exec -it docker-ros2_dev-1 bash -c "cd ros2_ws && bash"
 
 colcon build --symlink-install --base-paths src # unix
-colcon build ---merge-install --base-paths src  # windows
+colcon build --expmerge-install --base-paths src  # windows
 
 ros2 topic echo /joint_states --once
 
