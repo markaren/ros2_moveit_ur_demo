@@ -74,6 +74,8 @@ ros2 launch ur_bringup move_robot.launch.py fake_controller:=false launch_rviz:=
 sudo apt install ros-jazzy-control-msgs ros-jazzy-ur-description ros-jazzy-ur-movit-config ros-jazzy-moveit
 ```
 
+Or just use the provided Docker setup, which is based on ROS 2 Jazzy and includes all necessary packages.
+
 ### Windows
 On Windows, using the [robostack](https://robostack.github.io/index.html) virtual environment is recommended to ensure compatibility with ROS 2 packages.
 See [ROBOSTACK.md](doc/ROBOSTACK.md) for more details.
