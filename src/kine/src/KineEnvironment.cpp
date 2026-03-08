@@ -15,8 +15,8 @@
 #include <threepp/loaders/URDFLoader.hpp>
 #include <threepp/controls/TransformControls.hpp>
 #include <threepp/materials/MeshBasicMaterial.hpp>
-
 #include "KineUI.hpp"
+#include "EETrail.hpp"
 #include "TransformKeyListener.hpp"
 
 using namespace threepp;
@@ -257,17 +257,15 @@ void KineEnvironmentNode::run()
         camera.updateProjectionMatrix();
     });
 
+    EETrail trail;
+    scene.add(trail.object());
+
     Clock clock;
     canvas.animate([&]
     {
         const auto dt = clock.getDelta();
 
         if (animator_) animator_->update(dt, ui.loopGhost());
-
-        if (const auto show = ui.consumeCollisionGeometryChange())
-        {
-            robot_->showColliders(*show);
-        }
 
         if (const auto jointValues = ui.consumeJointChange())
         {
@@ -304,6 +302,17 @@ void KineEnvironmentNode::run()
                 targetObject->quaternion.setFromRotationMatrix(transform);
                 ik_ghost_->setJointValues(robot_->jointValues());
             }
+        }
+
+        if (ui.showTrail())
+        {
+            Vector3 eePos;
+            eePos.setFromMatrixPosition(robot_->getEndEffectorTransform());
+            trail.update(clock.elapsedTime, eePos);
+        }
+        else if (trail.object().visible)
+        {
+            trail.clear();
         }
 
         renderer.render(scene, camera);

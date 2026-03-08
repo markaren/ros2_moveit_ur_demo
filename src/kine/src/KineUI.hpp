@@ -30,12 +30,8 @@ public:
     {}
 
     [[nodiscard]] bool loopGhost() const { return loopGhost_; }
+    [[nodiscard]] bool showTrail() const { return showTrail_; }
 
-    // Returns new value if the checkbox was toggled since last call.
-    std::optional<bool> consumeCollisionGeometryChange()
-    {
-        return std::exchange(pendingCollisionGeometryChange_, std::nullopt);
-    }
 
     // Returns modified joint values if any slider changed since last call.
     std::optional<std::vector<float>> consumeJointChange()
@@ -69,10 +65,7 @@ protected:
 
         ImGui::Begin("Controls");
 
-        if (ImGui::Checkbox("Show Collision Geometry", &showCollisionGeometry_))
-        {
-            pendingCollisionGeometryChange_ = showCollisionGeometry_;
-        }
+        ImGui::Checkbox("Show EE Trail", &showTrail_);
 
         if (ImGui::CollapsingHeader("Joints"))
         {
@@ -128,16 +121,16 @@ protected:
     }
 
 private:
-    std::shared_ptr<Robot> robot_;
     std::mutex& robotMutex_;
+    std::shared_ptr<Robot> robot_;
     const std::vector<std::string>& jointNames_;
     bool goalPlanning_;
 
     bool showCollisionGeometry_ = false;
+    bool showTrail_ = true;
     bool loopGhost_ = true;
     bool planRequested_ = false;
 
-    std::optional<bool> pendingCollisionGeometryChange_;
     std::optional<std::vector<float>> pendingJointChange_;
     bool pendingPlanRequest_ = false;
     bool pendingExecuteRequest_ = false;
