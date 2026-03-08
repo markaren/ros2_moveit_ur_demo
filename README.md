@@ -2,13 +2,15 @@
 
 A ROS2 workspace showcasing usage of MoveIt with UR robots.
 
-This repository contains a `fake_controller` node that allows for testing MoveIt planning and execution without requiring real robots or URsim.
-Works on both Linux and Windows, but Windows users must robostack to ensure compatibility with ROS 2 packages. See [ROBOSTACK.md](doc/ROBOSTACK.md) for more details.
+A Docker setup is included for users who want to interact with URsim or real hardware on Windows.
+See [DOCKER.md](doc/DOCKER.md) for instructions on using Docker.
+
+This repository also contains a `fake_controller` node that allows for testing MoveIt planning and 
+execution without requiring real robots or URsim.
+Works on both Linux and Windows, but Windows users must use [robostack](https://robostack.github.io/index.html) to ensure
+compatibility with required ROS 2 packages. See [ROBOSTACK.md](doc/ROBOSTACK.md) for more details.
 
 > Note: The (optional) CLion integration assumes robostack to be set up at `C:\robostack`.
-
-A Docker setup is also included for users who want to interact with URsim or real hardware on Windows. 
-See [DOCKER.md](doc/DOCKER.md) for instructions on using Docker.
 
 ## Overview of Nodes in the packages
 
