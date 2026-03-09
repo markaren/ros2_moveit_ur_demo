@@ -23,8 +23,9 @@ We first build a base image for `ur_driver` and `ros2_dev` containers:
 ```bash
 docker build -t ros_ur_base:latest -f Dockerfile.base .
 ```
+Run the above from the `/docker_files`directory.
 
-To start the application framework, do:
+To start the application framework, run (from any directory):
 
 ```bash
 docker compose up --build
