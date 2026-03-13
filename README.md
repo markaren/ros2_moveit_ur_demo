@@ -90,17 +90,22 @@ ros2 launch ur_bringup move_robot.launch.py fake_controller:=false launch_rviz:=
 
 ```bash
 # Start Docker environment
-docker compose up --build
-docker exec -it ursim-ros2_dev-1 bash -c "cd ros2_ws && bash"
-
-# Build and source
-colcon build --symlink-install --base-paths src
-source install/setup.sh
+docker compose down # stop and remove old containers/volumes
+docker compose up --build # start new containers (build if needed)
+docker exec -it ursim-ros2_dev-1 bash -c "cd ros2_ws && bash" 
 
 # Check connectivity (sometimes nothing appears, try restarting container or resetting the daemon)
 ros2 topic echo /joint_states --once
 
-# Launch (fake controller)
+# Test default Moveit configuration (no custom nodes, just MoveIt + RViz)
+ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur5e launch_rviz:=true
+
+
+# Build and test custom workspace 
+colcon build --symlink-install --base-paths src
+source install/setup.sh 
+
+# Launch (fake controller - works on Linux and Windows, no docker or URsim needed)
 ros2 launch ur_bringup move_robot.launch.py fake_controller:=true launch_rviz:=false
 
 # Launch (URsim / real hardware)

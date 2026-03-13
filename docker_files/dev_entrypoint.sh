@@ -11,6 +11,7 @@ if [ -f /ros2_ws/install/setup.bash ]; then
   source /ros2_ws/install/setup.bash
 fi
 export RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+export CYCLONEDDS_URI=${CYCLONEDDS_URI:-/cyclonedds.xml}
 export XDG_RUNTIME_DIR=/tmp/runtime
 BASHRC
 
