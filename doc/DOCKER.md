@@ -27,8 +27,16 @@ Run the above from the `/docker_files`directory.
 
 To start the application framework, run (from any directory):
 
+**Windows:**
 ```bash
-docker compose up --build
+docker compuse down # stop and remove old containers/volumes
+docker compose up --build 
+```
+**Linux**
+```bash                                                                                  
+xhost +local:docker
+docker compuse down
+docker compose -f docker-compose.yml -f docker-compose.linux.yml up  
 ```
 
 Wait a few seconds for URSim to boot and `ur_driver` to connect. The very first build might take some time.

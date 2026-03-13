@@ -1,0 +1,14 @@
+# Native Linux override — use instead of docker-compose.yml's Windows X11 settings:
+#   docker compose -f docker-compose.yml -f docker-compose.linux.yml up
+#
+# Before starting, allow containers to connect to the host X server:
+#   xhost +local:docker
+
+services:
+  ros2_dev:
+    environment:
+      - DISPLAY=${DISPLAY}
+      - LIBGL_ALWAYS_INDIRECT=0
+    volumes:
+      # Override: drop the WSLg mounts, use only the X11 socket
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
