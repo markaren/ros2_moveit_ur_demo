@@ -1,10 +1,10 @@
-#include <memory>
-#include <string>
-#include <chrono>
 #include <algorithm>
-#include <mutex>
-#include <thread>
 #include <atomic>
+#include <chrono>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
 #include <unordered_map>
 
 #include <control_msgs/action/follow_joint_trajectory.hpp>
@@ -14,32 +14,28 @@
 
 using namespace std::chrono_literals;
 
-class FakeController : public rclcpp::Node
-{
+class FakeController: public rclcpp::Node {
 public:
     FakeController()
-        : Node("fake_controller_node")
-    {
+        : Node("fake_controller_node") {
         // --- Parameters ---
         jointNames_ = this->declare_parameter<std::vector<std::string>>(
-            "joint_names", std::vector<std::string>{});
+                "joint_names", std::vector<std::string>{});
 
         controller_name_ = this->declare_parameter<std::string>(
-            "controller_name", "fake_ur_manipulator_controller");
+                "controller_name", "fake_ur_manipulator_controller");
 
         publish_rate_hz_ = this->declare_parameter<double>("publish_rate_hz", 50.0);
         execution_rate_hz_ = this->declare_parameter<double>("execution_rate_hz", 125.0);
         interpolation_method_ = this->declare_parameter<std::string>("interpolation", "cubic");
 
-        if (jointNames_.empty())
-        {
+        if (jointNames_.empty()) {
             RCLCPP_WARN(get_logger(), "No joint_names provided — the controller won't publish anything useful.");
         }
 
         jointPositions_.resize(jointNames_.size(), 0.0);
         jointVelocities_.resize(jointNames_.size(), 0.0);
-        for (size_t i = 0; i < jointNames_.size(); ++i)
-        {
+        for (size_t i = 0; i < jointNames_.size(); ++i) {
             jointIndexByName_[jointNames_[i]] = i;
         }
 
@@ -48,48 +44,44 @@ public:
 
         const auto publish_period = std::chrono::duration<double>(1.0 / publish_rate_hz_);
         publish_timer_ = this->create_wall_timer(
-            std::chrono::duration_cast<std::chrono::nanoseconds>(publish_period),
-            [this]
-            {
-                if (jointNames_.empty()) return;
-                sensor_msgs::msg::JointState js;
-                js.header.stamp = this->now();
-                js.name = jointNames_;
-                {
-                    std::lock_guard lock(joint_mutex_);
-                    js.position = jointPositions_;
-                    js.velocity = jointVelocities_;
-                    js.effort.assign(jointNames_.size(), 0.0);
-                }
-                joint_pub_->publish(js);
-            });
+                std::chrono::duration_cast<std::chrono::nanoseconds>(publish_period),
+                [this] {
+                    if (jointNames_.empty()) return;
+                    sensor_msgs::msg::JointState js;
+                    js.header.stamp = this->now();
+                    js.name = jointNames_;
+                    {
+                        std::lock_guard lock(joint_mutex_);
+                        js.position = jointPositions_;
+                        js.velocity = jointVelocities_;
+                        js.effort.assign(jointNames_.size(), 0.0);
+                    }
+                    joint_pub_->publish(js);
+                });
 
         // --- Action server ---
         const std::string action_name = "/" + controller_name_ + "/follow_joint_trajectory";
         action_server_ = rclcpp_action::create_server<FollowJT>(
-            this,
-            action_name,
-            std::bind(&FakeController::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
-            std::bind(&FakeController::handle_cancel, this, std::placeholders::_1),
-            std::bind(&FakeController::handle_accepted, this, std::placeholders::_1));
+                this,
+                action_name,
+                std::bind(&FakeController::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
+                std::bind(&FakeController::handle_cancel, this, std::placeholders::_1),
+                std::bind(&FakeController::handle_accepted, this, std::placeholders::_1));
 
 
         joint_cmd_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
-            "joint_commands", 10,
-            [this](sensor_msgs::msg::JointState::SharedPtr msg)
-            {
-                if (msg->position.size() < msg->name.size()) return;
-                std::lock_guard lock(joint_mutex_);
-                for (size_t i = 0; i < msg->name.size(); ++i)
-                {
-                    auto it = jointIndexByName_.find(msg->name[i]);
-                    if (it != jointIndexByName_.end())
-                    {
-                        jointPositions_[it->second] = msg->position[i];
-                        jointVelocities_[it->second] = 0.0;
+                "joint_commands", 10,
+                [this](sensor_msgs::msg::JointState::SharedPtr msg) {
+                    if (msg->position.size() < msg->name.size()) return;
+                    std::lock_guard lock(joint_mutex_);
+                    for (size_t i = 0; i < msg->name.size(); ++i) {
+                        auto it = jointIndexByName_.find(msg->name[i]);
+                        if (it != jointIndexByName_.end()) {
+                            jointPositions_[it->second] = msg->position[i];
+                            jointVelocities_[it->second] = 0.0;
+                        }
                     }
-                }
-            });
+                });
 
         RCLCPP_INFO(get_logger(),
                     "FakeController ready — action: %s, joints: %zu, publish: %.0f Hz, exec: %.0f Hz, interp: %s",
@@ -97,8 +89,7 @@ public:
                     interpolation_method_.c_str());
     }
 
-    ~FakeController() override
-    {
+    ~FakeController() override {
         shutdown_requested_.store(true);
         cancel_execution();
     }
@@ -135,15 +126,13 @@ private:
     // ================================================================
 
     /// Linear interpolation between two waypoints.
-    static double lerp(double q0, double q1, double alpha)
-    {
+    static double lerp(double q0, double q1, double alpha) {
         return (1.0 - alpha) * q0 + alpha * q1;
     }
 
     /// Cubic Hermite interpolation using positions and velocities at endpoints.
     static double cubic_hermite(double q0, double v0, double q1, double v1,
-                                double dt, double alpha)
-    {
+                                double dt, double alpha) {
         if (dt <= 0.0) return q1;
         // Normalized time s ∈ [0,1], scale velocities by dt
         const double s = alpha;
@@ -159,8 +148,7 @@ private:
     }
 
     /// Compute velocity via finite‑difference (if velocities aren't supplied).
-    static double fd_velocity(double q_prev, double q_next, double dt)
-    {
+    static double fd_velocity(double q_prev, double q_next, double dt) {
         return (dt > 0.0) ? (q_next - q_prev) / dt : 0.0;
     }
 
@@ -169,31 +157,25 @@ private:
     // ================================================================
 
     rclcpp_action::GoalResponse handle_goal(
-        const rclcpp_action::GoalUUID& /*uuid*/,
-        std::shared_ptr<const FollowJT::Goal> goal)
-    {
+            const rclcpp_action::GoalUUID& /*uuid*/,
+            std::shared_ptr<const FollowJT::Goal> goal) {
         const auto& traj = goal->trajectory;
 
-        if (traj.joint_names.empty() || traj.points.empty())
-        {
+        if (traj.joint_names.empty() || traj.points.empty()) {
             RCLCPP_WARN(get_logger(), "Rejected goal: empty joint_names or points");
             return rclcpp_action::GoalResponse::REJECT;
         }
 
-        for (const auto& name : traj.joint_names)
-        {
-            if (!jointIndexByName_.contains(name))
-            {
+        for (const auto& name : traj.joint_names) {
+            if (!jointIndexByName_.contains(name)) {
                 RCLCPP_ERROR(get_logger(), "Rejected goal: unknown joint '%s'", name.c_str());
                 return rclcpp_action::GoalResponse::REJECT;
             }
         }
 
-        for (size_t i = 0; i < traj.points.size(); ++i)
-        {
+        for (size_t i = 0; i < traj.points.size(); ++i) {
             const auto& pt = traj.points[i];
-            if (pt.positions.size() != traj.joint_names.size())
-            {
+            if (pt.positions.size() != traj.joint_names.size()) {
                 RCLCPP_ERROR(get_logger(),
                              "Rejected goal: point %zu has %zu positions (expected %zu)",
                              i, pt.positions.size(), traj.joint_names.size());
@@ -201,12 +183,10 @@ private:
             }
 
             // Verify monotonically increasing time_from_start
-            if (i > 0)
-            {
+            if (i > 0) {
                 const double t_prev = rclcpp::Duration(traj.points[i - 1].time_from_start).seconds();
                 const double t_cur = rclcpp::Duration(pt.time_from_start).seconds();
-                if (t_cur < t_prev)
-                {
+                if (t_cur < t_prev) {
                     RCLCPP_ERROR(get_logger(),
                                  "Rejected goal: time_from_start is not monotonically increasing at point %zu", i);
                     return rclcpp_action::GoalResponse::REJECT;
@@ -220,27 +200,23 @@ private:
     }
 
     rclcpp_action::CancelResponse handle_cancel(
-        const std::shared_ptr<GoalHandle> /*goal_handle*/)
-    {
+            const std::shared_ptr<GoalHandle> /*goal_handle*/) {
         RCLCPP_INFO(get_logger(), "Cancel requested");
         cancel_execution();
         return rclcpp_action::CancelResponse::ACCEPT;
     }
 
-    void handle_accepted(const std::shared_ptr<GoalHandle> goal_handle)
-    {
+    void handle_accepted(const std::shared_ptr<GoalHandle> goal_handle) {
         // Preempt any running goal
         cancel_execution();
-        if (execution_thread_.joinable())
-        {
+        if (execution_thread_.joinable()) {
             execution_thread_.join();
         }
         cancel_requested_.store(false);
         execution_thread_ = std::jthread{&FakeController::execute_goal, this, goal_handle};
     }
 
-    void cancel_execution()
-    {
+    void cancel_execution() {
         cancel_requested_.store(true);
     }
 
@@ -248,8 +224,7 @@ private:
     //  Goal execution (runs in dedicated thread)
     // ================================================================
 
-    void execute_goal(const std::shared_ptr<GoalHandle> goal_handle)
-    {
+    void execute_goal(const std::shared_ptr<GoalHandle> goal_handle) {
         const auto& goal = goal_handle->get_goal();
         const auto& traj = goal->trajectory;
         const size_t n_joints = traj.joint_names.size();
@@ -257,18 +232,15 @@ private:
 
         // Build index mapping: incoming order → our internal order
         std::vector<size_t> idx_map(n_joints);
-        for (size_t i = 0; i < n_joints; ++i)
-        {
+        for (size_t i = 0; i < n_joints; ++i) {
             idx_map[i] = jointIndexByName_.at(traj.joint_names[i]);
         }
 
         // Helper: apply positions + velocities to internal state
         auto apply_state = [&](const std::vector<double>& pos,
-                               const std::vector<double>& vel)
-        {
+                               const std::vector<double>& vel) {
             std::lock_guard lock(joint_mutex_);
-            for (size_t j = 0; j < n_joints; ++j)
-            {
+            for (size_t j = 0; j < n_joints; ++j) {
                 jointPositions_[idx_map[j]] = pos[j];
                 jointVelocities_[idx_map[j]] = vel[j];
             }
@@ -276,10 +248,9 @@ private:
 
         // Check whether velocities are available in all waypoints
         const bool have_velocities = std::ranges::all_of(
-            traj.points, [&](const auto& pt)
-            {
-                return pt.velocities.size() == n_joints;
-            });
+                traj.points, [&](const auto& pt) {
+                    return pt.velocities.size() == n_joints;
+                });
 
         const bool use_cubic = (interpolation_method_ == "cubic") && have_velocities;
 
@@ -301,16 +272,14 @@ private:
         std::vector<double> interp_pos(n_joints);
         std::vector<double> interp_vel(n_joints, 0.0);
 
-        while (rclcpp::ok() && !shutdown_requested_.load())
-        {
-            if (cancel_requested_.load() || goal_handle->is_canceling())
-            {
+        while (rclcpp::ok() && !shutdown_requested_.load()) {
+            if (cancel_requested_.load() || goal_handle->is_canceling()) {
                 // Zero out velocities on cancel
                 {
                     std::lock_guard lock(joint_mutex_);
                     std::ranges::fill(jointVelocities_, 0.0);
                 }
-                result->error_code = FollowJT::Result::SUCCESSFUL; // cancel is not an error
+                result->error_code = FollowJT::Result::SUCCESSFUL;// cancel is not an error
                 goal_handle->canceled(result);
                 RCLCPP_INFO(get_logger(), "Goal canceled");
                 return;
@@ -321,15 +290,13 @@ private:
 
             // Advance segment index
             while (seg + 1 < n_points &&
-                rclcpp::Duration(traj.points[seg + 1].time_from_start).seconds() <= t_sec)
-            {
+                   rclcpp::Duration(traj.points[seg + 1].time_from_start).seconds() <= t_sec) {
                 ++seg;
             }
 
             // Check for completion
             const double t_final = rclcpp::Duration(traj.points.back().time_from_start).seconds();
-            if (seg >= n_points - 1 && t_sec >= t_final)
-            {
+            if (seg >= n_points - 1 && t_sec >= t_final) {
                 std::vector<double> zero_vel(n_joints, 0.0);
                 apply_state(traj.points.back().positions,
                             have_velocities ? traj.points.back().velocities : zero_vel);
@@ -352,18 +319,15 @@ private:
             const double dt = t1 - t0;
             const double alpha = (dt > 0.0) ? std::clamp((t_sec - t0) / dt, 0.0, 1.0) : 1.0;
 
-            for (size_t j = 0; j < n_joints; ++j)
-            {
-                if (use_cubic)
-                {
+            for (size_t j = 0; j < n_joints; ++j) {
+                if (use_cubic) {
                     interp_pos[j] = cubic_hermite(
-                        p0.positions[j], p0.velocities[j],
-                        p1.positions[j], p1.velocities[j],
-                        dt, alpha);
+                            p0.positions[j], p0.velocities[j],
+                            p1.positions[j], p1.velocities[j],
+                            dt, alpha);
 
                     // Derivative of cubic Hermite for velocity feedback
-                    if (dt > 0.0)
-                    {
+                    if (dt > 0.0) {
                         const double s = alpha;
                         const double ds_dt = 1.0 / dt;
                         const double dh00 = (6.0 * s * s - 6.0 * s) * ds_dt;
@@ -371,15 +335,11 @@ private:
                         const double dh01 = (-6.0 * s * s + 6.0 * s) * ds_dt;
                         const double dh11 = (3.0 * s * s - 2.0 * s) * ds_dt;
                         interp_vel[j] = dh00 * p0.positions[j] + dh10 * (p0.velocities[j] * dt) +
-                            dh01 * p1.positions[j] + dh11 * (p1.velocities[j] * dt);
-                    }
-                    else
-                    {
+                                        dh01 * p1.positions[j] + dh11 * (p1.velocities[j] * dt);
+                    } else {
                         interp_vel[j] = 0.0;
                     }
-                }
-                else
-                {
+                } else {
                     interp_pos[j] = lerp(p0.positions[j], p1.positions[j], alpha);
                     interp_vel[j] = (dt > 0.0) ? (p1.positions[j] - p0.positions[j]) / dt : 0.0;
                 }
@@ -408,16 +368,14 @@ private:
 
         // Node shutting down before trajectory finished
         result->error_code = FollowJT::Result::INVALID_GOAL;
-        if (!goal_handle->is_canceling())
-        {
+        if (!goal_handle->is_canceling()) {
             goal_handle->abort(result);
             RCLCPP_WARN(get_logger(), "Goal aborted — node shutting down");
         }
     }
 };
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<FakeController>();
     rclcpp::spin(node);

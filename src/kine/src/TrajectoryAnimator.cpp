@@ -3,12 +3,10 @@
 #include <algorithm>
 
 TrajectoryAnimator::TrajectoryAnimator(std::shared_ptr<threepp::Robot> ghost)
-    : ghost_(std::move(ghost))
-{
+    : ghost_(std::move(ghost)) {
 }
 
-void TrajectoryAnimator::loadTrajectory(const moveit_msgs::msg::DisplayTrajectory::SharedPtr& msg)
-{
+void TrajectoryAnimator::loadTrajectory(const moveit_msgs::msg::DisplayTrajectory::SharedPtr& msg) {
     std::lock_guard lock(mutex_);
     points_.clear();
     times_.clear();
@@ -22,18 +20,15 @@ void TrajectoryAnimator::loadTrajectory(const moveit_msgs::msg::DisplayTrajector
     const auto& joint_traj = msg->trajectory.back().joint_trajectory;
     if (joint_traj.points.empty()) return;
 
-    for (const auto& point : joint_traj.points)
-    {
+    for (const auto& point : joint_traj.points) {
         std::vector<float> joints;
         joints.reserve(point.positions.size());
-        for (const auto& p : point.positions)
-        {
+        for (const auto& p : point.positions) {
             joints.push_back(static_cast<float>(p));
         }
         points_.push_back(std::move(joints));
 
-        const double t = point.time_from_start.sec
-                 + point.time_from_start.nanosec * 1e-9;
+        const double t = point.time_from_start.sec + point.time_from_start.nanosec * 1e-9;
         times_.push_back(static_cast<float>(t));
     }
 
@@ -42,80 +37,63 @@ void TrajectoryAnimator::loadTrajectory(const moveit_msgs::msg::DisplayTrajector
     elapsed_ = 0.0f;
 }
 
-void TrajectoryAnimator::update(float dt, bool loop)
-{
+void TrajectoryAnimator::update(float dt, bool loop) {
     std::lock_guard lock(mutex_);
     ghost_->visible = visible_;
 
-    if (visible_ && playing_ && points_.size() >= 2 && !times_.empty())
-    {
+    if (visible_ && playing_ && points_.size() >= 2 && !times_.empty()) {
         elapsed_ += dt;
         const float duration = times_.back();
 
-        if (elapsed_ >= duration)
-        {
-            if (loop)
-            {
+        if (elapsed_ >= duration) {
+            if (loop) {
                 // Wait before restarting
                 loopWait_ += dt;
-                if (loopWait_ >= loopDelay_)
-                {
+                if (loopWait_ >= loopDelay_) {
                     elapsed_ = 0.0f;
                     loopWait_ = 0.0f;
-                } else
-                {
+                } else {
                     // Hold on last frame while waiting
                     applyJoints(points_.back());
                     return;
                 }
-            }
-            else
-            {
+            } else {
                 elapsed_ = duration;
                 playing_ = false;
             }
         }
 
         interpolateAndApply();
-    }
-    else if (visible_ && !points_.empty() && !playing_)
-    {
+    } else if (visible_ && !points_.empty() && !playing_) {
         applyJoints(points_.back());
     }
 }
 
-void TrajectoryAnimator::stop()
-{
+void TrajectoryAnimator::stop() {
     std::lock_guard lock(mutex_);
     visible_ = false;
     playing_ = false;
 }
 
-bool TrajectoryAnimator::isVisible() const
-{
+bool TrajectoryAnimator::isVisible() const {
     std::lock_guard lock(mutex_);
     return visible_;
 }
 
-bool TrajectoryAnimator::isPlaying() const
-{
+bool TrajectoryAnimator::isPlaying() const {
     std::lock_guard lock(mutex_);
     return playing_;
 }
 
-void TrajectoryAnimator::applyJoints(const std::vector<float>& joints)
-{
-    for (size_t i = 0; i < joints.size(); ++i)
-    {
+void TrajectoryAnimator::applyJoints(const std::vector<float>& joints) {
+    for (size_t i = 0; i < joints.size(); ++i) {
         ghost_->setJointValue(i, joints[i]);
     }
 }
 
-void TrajectoryAnimator::interpolateAndApply()
-{
+void TrajectoryAnimator::interpolateAndApply() {
     size_t nextIdx = 1;
-    for (; nextIdx < times_.size(); ++nextIdx)
-    {
+    for (; nextIdx < times_.size(); ++nextIdx) {
         if (times_[nextIdx] >= elapsed_)
             break;
     }
@@ -124,16 +102,15 @@ void TrajectoryAnimator::interpolateAndApply()
     const float t0 = times_[prevIdx];
     const float t1 = times_[nextIdx];
     float alpha = (t1 > t0)
-        ? (elapsed_ - t0) / (t1 - t0)
-        : 0.0f;
+                          ? (elapsed_ - t0) / (t1 - t0)
+                          : 0.0f;
     alpha = std::clamp(alpha, 0.0f, 1.0f);
 
     const auto& prev = points_[prevIdx];
     const auto& next = points_[nextIdx];
     const size_t numJoints = std::min(prev.size(), next.size());
 
-    for (size_t i = 0; i < numJoints; ++i)
-    {
+    for (size_t i = 0; i < numJoints; ++i) {
         const float val = prev[i] + alpha * (next[i] - prev[i]);
         ghost_->setJointValue(i, val);
     }

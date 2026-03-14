@@ -12,54 +12,42 @@
 
 using namespace threepp;
 
-class KineUI : public ImguiContext
-{
+class KineUI: public ImguiContext {
 public:
     KineUI(
-        const Canvas& canvas,
-        std::shared_ptr<Robot> robot,
-        std::mutex& robotMutex,
-        const std::vector<std::string>& jointNames,
-        bool goalPlanning
-    )
-        : ImguiContext(canvas)
-        , robot_(std::move(robot))
-        , robotMutex_(robotMutex)
-        , jointNames_(jointNames)
-        , goalPlanning_(goalPlanning)
-    {}
+            const Canvas& canvas,
+            std::shared_ptr<Robot> robot,
+            std::mutex& robotMutex,
+            const std::vector<std::string>& jointNames,
+            bool goalPlanning)
+        : ImguiContext(canvas), robot_(std::move(robot)), robotMutex_(robotMutex), jointNames_(jointNames), goalPlanning_(goalPlanning) {}
 
     [[nodiscard]] bool loopGhost() const { return loopGhost_; }
     [[nodiscard]] bool showTrail() const { return showTrail_; }
 
 
     // Returns modified joint values if any slider changed since last call.
-    std::optional<std::vector<float>> consumeJointChange()
-    {
+    std::optional<std::vector<float>> consumeJointChange() {
         return std::exchange(pendingJointChange_, std::nullopt);
     }
 
     // True if "Plan goal" was clicked since last call.
-    bool consumePlanRequest()
-    {
+    bool consumePlanRequest() {
         return std::exchange(pendingPlanRequest_, false);
     }
 
     // True if "Execute" was clicked since last call.
-    bool consumeExecuteRequest()
-    {
+    bool consumeExecuteRequest() {
         return std::exchange(pendingExecuteRequest_, false);
     }
 
     // True if "Reset gizmo" was clicked since last call.
-    bool consumeResetGizmoRequest()
-    {
+    bool consumeResetGizmoRequest() {
         return std::exchange(pendingResetGizmoRequest_, false);
     }
 
 protected:
-    void onRender() override
-    {
+    void onRender() override {
         ImGui::SetNextWindowPos({});
         ImGui::SetNextWindowSize({});
 
@@ -67,52 +55,42 @@ protected:
 
         ImGui::Checkbox("Show EE Trail", &showTrail_);
 
-        if (ImGui::CollapsingHeader("Joints"))
-        {
+        if (ImGui::CollapsingHeader("Joints")) {
             std::unique_lock lock(robotMutex_);
             const auto infos = robot_->getArticulatedJointInfo();
             auto jointValues = robot_->jointValues();
             bool jointsChanged = false;
-            for (unsigned i = 0; i < robot_->numDOF(); ++i)
-            {
+            for (unsigned i = 0; i < robot_->numDOF(); ++i) {
                 const auto [min, max] = robot_->getJointRange(i, true);
-                if (infos[i].type == Robot::JointType::Revolute)
-                {
+                if (infos[i].type == Robot::JointType::Revolute) {
                     jointsChanged |= ImGui::SliderAngle(jointNames_[i].c_str(), &jointValues[i], min, max);
-                }
-                else
-                {
+                } else {
                     jointsChanged |= ImGui::SliderFloat(jointNames_[i].c_str(), &jointValues[i], min, max);
                 }
             }
             lock.unlock();
 
-            if (jointsChanged)
-            {
+            if (jointsChanged) {
                 pendingJointChange_ = std::move(jointValues);
             }
         }
 
-        if (goalPlanning_)
-        {
+        if (goalPlanning_) {
             ImGui::Checkbox("Loop ghost animation", &loopGhost_);
 
-            if (ImGui::Button("Plan goal"))
-            {
+            if (ImGui::Button("Plan goal")) {
                 pendingPlanRequest_ = true;
                 planRequested_ = true;
             }
 
             ImGui::BeginDisabled(!planRequested_);
-            if (ImGui::Button("Execute"))
-            {
+            if (ImGui::Button("Execute")) {
                 pendingExecuteRequest_ = true;
                 planRequested_ = false;
             }
             ImGui::EndDisabled();
 
-            if (ImGui::Button("Reset gizmo"))
-            {
+            if (ImGui::Button("Reset gizmo")) {
                 pendingResetGizmoRequest_ = true;
             }
         }
@@ -137,4 +115,4 @@ private:
     bool pendingResetGizmoRequest_ = false;
 };
 
-#endif //KINEUI_HPP
+#endif//KINEUI_HPP

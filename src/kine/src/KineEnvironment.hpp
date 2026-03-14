@@ -7,8 +7,8 @@
 #include <rclcpp/parameter_client.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-#include <sensor_msgs/msg/joint_state.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/empty.hpp>
 
 #include <moveit_msgs/msg/display_trajectory.hpp>
@@ -20,8 +20,7 @@
 
 using namespace threepp;
 
-class KineEnvironmentNode : public rclcpp::Node
-{
+class KineEnvironmentNode: public rclcpp::Node {
 public:
     KineEnvironmentNode();
 
@@ -29,8 +28,8 @@ public:
 
 private:
     std::string urdf_;
-    std::shared_ptr<Robot> robot_, planner_ghost_, ik_ghost_;
     std::vector<std::string> jointNames_;
+    std::shared_ptr<Robot> robot_, planner_ghost_, ik_ghost_;
 
     bool goal_planning_;
     std::unique_ptr<TrajectoryAnimator> animator_;
@@ -50,4 +49,4 @@ private:
     void requestIK(const geometry_msgs::msg::Pose& target_pose);
 };
 
-#endif // KINEENVIRONMENT_HPP
+#endif// KINEENVIRONMENT_HPP

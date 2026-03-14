@@ -6,8 +6,8 @@
 #include <mutex>
 #include <vector>
 
-#include <threepp/loaders/URDFLoader.hpp>
 #include <moveit_msgs/msg/display_trajectory.hpp>
+#include <threepp/loaders/URDFLoader.hpp>
 
 class TrajectoryAnimator {
 public:
@@ -35,4 +35,4 @@ private:
     float loopWait_{0.0f};
 };
 
-#endif //TRAJECTORYANIMATOR_HPP
+#endif//TRAJECTORYANIMATOR_HPP

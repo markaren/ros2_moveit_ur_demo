@@ -9,11 +9,9 @@
 
 using namespace threepp;
 
-class EETrail
-{
+class EETrail {
 public:
-    explicit EETrail(const Color& color = Color::darkviolet)
-    {
+    explicit EETrail(const Color& color = Color::darkviolet) {
         auto attr = FloatBufferAttribute::create(std::vector(kMaxPoints * 3, 0.f), 3);
         attr->setUsage(DrawUsage::Dynamic);
 
@@ -30,8 +28,7 @@ public:
 
     Object3D& object() { return *line_; }
 
-    void update(float time, const Vector3& pos)
-    {
+    void update(float time, const Vector3& pos) {
         deque_.push_back({time, pos});
 
         while (time - deque_.front().time > kDuration)
@@ -39,9 +36,8 @@ public:
 
         const auto n = std::min(static_cast<int>(deque_.size()), kMaxPoints);
         auto& arr = geom_->getAttribute<float>("position")->array();
-        for (int i = 0; i < n; ++i)
-        {
-            arr[i * 3]     = deque_[i].pos.x;
+        for (int i = 0; i < n; ++i) {
+            arr[i * 3] = deque_[i].pos.x;
             arr[i * 3 + 1] = deque_[i].pos.y;
             arr[i * 3 + 2] = deque_[i].pos.z;
         }
@@ -50,8 +46,7 @@ public:
         line_->visible = n >= 2;
     }
 
-    void clear()
-    {
+    void clear() {
         line_->visible = false;
         deque_.clear();
     }
@@ -60,11 +55,14 @@ private:
     static constexpr int kMaxPoints = 500;
     static constexpr float kDuration = 3.f;
 
-    struct TrailPoint { float time; Vector3 pos; };
+    struct TrailPoint {
+        float time;
+        Vector3 pos;
+    };
     std::deque<TrailPoint> deque_;
 
     std::shared_ptr<BufferGeometry> geom_;
     std::shared_ptr<Line> line_;
 };
 
-#endif //EETRAIL_HPP
+#endif//EETRAIL_HPP
