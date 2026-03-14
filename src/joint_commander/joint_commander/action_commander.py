@@ -1,12 +1,14 @@
 """
-Option 2 — action commander.
+action commander.
 
-Sends a FollowJointTrajectory action goal to the fake_controller.
-The controller interpolates smoothly between waypoints (cubic Hermite
-when velocities are provided, linear otherwise) at its configured rate
-(default 125 Hz) and publishes live joint_states throughout.
+Sends a FollowJointTrajectory action goal to a joint trajectory controller.
+Works with fake_controller, URSim, or a real UR robot — set the
+'controller_name' parameter to match the active controller:
 
-Usage: tweak WAYPOINTS / DURATIONS below and run via action_commander.launch.py.
+  fake_controller:               fake_ur_manipulator_controller  (default)
+  real robot / URSim (ur_robot_driver): scaled_joint_trajectory_controller
+
+Usage: tweak WAYPOINTS below and run via action_commander.launch.py.
 """
 
 import math
@@ -26,8 +28,6 @@ JOINT_NAMES = [
     'wrist_3_joint',
 ]
 
-CONTROLLER_NAME = 'fake_ur_manipulator_controller'
-
 # (positions [rad], time_from_start [sec])
 WAYPOINTS = [
     ([0.0,        -math.pi/2,  0.0,  -math.pi/2,  0.0,  0.0], 0.0),
@@ -46,7 +46,10 @@ def _to_duration(seconds: float) -> Duration:
 class ActionCommander(Node):
     def __init__(self):
         super().__init__('action_commander')
-        action_name = f'/{CONTROLLER_NAME}/follow_joint_trajectory'
+        controller = self.declare_parameter(
+            'controller_name', 'fake_ur_manipulator_controller'
+        ).get_parameter_value().string_value
+        action_name = f'/{controller}/follow_joint_trajectory'
         self._client = ActionClient(self, FollowJointTrajectory, action_name)
         self.get_logger().info(f'Waiting for action server: {action_name}')
         self._client.wait_for_server()

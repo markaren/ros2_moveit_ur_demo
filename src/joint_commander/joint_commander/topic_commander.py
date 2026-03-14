@@ -1,5 +1,5 @@
 """
-Option 1 — topic commander.
+topic commander.
 
 Publishes sensor_msgs/JointState to the 'joint_commands' topic.
 The fake_controller snaps immediately to the commanded positions and
