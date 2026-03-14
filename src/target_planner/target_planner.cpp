@@ -29,7 +29,13 @@ public:
             "execute_plan", 10,
             [this](std_msgs::msg::Empty::SharedPtr)
             {
-                execute();
+                if (executing_.exchange(true))
+                {
+                    RCLCPP_WARN(get_logger(), "Execution already in progress, ignoring");
+                    return;
+                }
+                if (execute_thread_.joinable()) execute_thread_.join();
+                execute_thread_ = std::thread(&TargetPlanner::execute, this);
             });
     }
 
@@ -37,7 +43,7 @@ public:
     {
         move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(
             shared_from_this(), "ur_manipulator");
-        move_group_->setPlanningTime(10.0);
+        move_group_->setPlanningTime(5.0);
         move_group_->setGoalPositionTolerance(0.01);
         move_group_->setGoalOrientationTolerance(0.1);
         move_group_->setMaxVelocityScalingFactor(1.0);
@@ -48,13 +54,16 @@ public:
     ~TargetPlanner() override
     {
         if (plan_thread_.joinable()) plan_thread_.join();
+        if (execute_thread_.joinable()) execute_thread_.join();
     }
 
 private:
     std::atomic<bool> has_plan_{false};
     std::atomic<bool> planning_{false};
+    std::atomic<bool> executing_{false};
     std::mutex plan_mutex_;
     std::thread plan_thread_;
+    std::thread execute_thread_;
 
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
     rclcpp::Subscription<std_msgs::msg::Empty>::SharedPtr execute_sub_;
@@ -72,7 +81,14 @@ private:
         move_group_->setPoseTarget(target.pose, "tool0");
 
         moveit::planning_interface::MoveGroupInterface::Plan candidate;
-        const auto result = move_group_->plan(candidate);
+        moveit::core::MoveItErrorCode result;
+        constexpr int max_attempts = 3;
+        for (int attempt = 1; attempt <= max_attempts; ++attempt)
+        {
+            result = move_group_->plan(candidate);
+            if (result == moveit::core::MoveItErrorCode::SUCCESS) break;
+            RCLCPP_WARN(get_logger(), "Planning attempt %d/%d failed (error: %d)", attempt, max_attempts, result.val);
+        }
 
         if (result == moveit::core::MoveItErrorCode::SUCCESS)
         {
@@ -98,6 +114,7 @@ private:
         if (!has_plan_)
         {
             RCLCPP_WARN(get_logger(), "No valid plan to execute");
+            executing_ = false;
             return;
         }
 
@@ -119,6 +136,7 @@ private:
         {
             RCLCPP_ERROR(get_logger(), "Execution failed (error code: %d)", result.val);
         }
+        executing_ = false;
     }
 };
 
