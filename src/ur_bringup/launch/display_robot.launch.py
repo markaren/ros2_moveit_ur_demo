@@ -1,70 +1,30 @@
 from launch import LaunchDescription
-from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.substitutions import LaunchConfiguration
 from launch.conditions import IfCondition
-from launch.actions import DeclareLaunchArgument
+from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-from launch.substitutions import Command, FindExecutable, PathJoinSubstitution, LaunchConfiguration
+from launch.substitutions import PathJoinSubstitution
+from ur_bringup.launch_utils import robot_description_command
 
 
-def generate_launch_description():
-
-    launch_rviz_arg = DeclareLaunchArgument(
-        "launch_rviz",
-        default_value="true",
-        description="Whether to launch RViz2",
-    )
-
-    launch_jsp_arg = DeclareLaunchArgument(
-        "launch_jsp",
-        default_value="false",
-        description="Whether to launch the Joint State Publisher GUI",
-    )
-
-    launch_rsp_arg = DeclareLaunchArgument(
-        "launch_rsp",
-        default_value="true",
-        description="Whether to launch the Robot State Publisher",
-    )
-
-    ur_type_arg = DeclareLaunchArgument(
-        "ur_type",
-        default_value="ur5e",
-        description="Which UR robot to display, given launch_rsp (e.g., ur3, ur5, ur5e, ur10, ur10e)",
-    )
-
-    ur_type = LaunchConfiguration("ur_type")
-    ur_config_path = PathJoinSubstitution([FindPackageShare("ur_description"), "config", ur_type])
-    robot_description_content = Command(
-        [
-            PathJoinSubstitution([FindExecutable(name="xacro")]),
-            " ",
-            PathJoinSubstitution([FindPackageShare("ur_description"), "urdf", "ur.urdf.xacro"]),
-            " ", "name:=ur",
-            " ", "ur_type:=", ur_type,
-            " ", "joint_limit_params:=", ur_config_path, "/joint_limits.yaml",
-            " ", "kinematics_params:=", ur_config_path, "/default_kinematics.yaml",
-            " ", "physical_params:=", ur_config_path, "/physical_parameters.yaml",
-            " ", "visual_params:=", ur_config_path, "/visual_parameters.yaml",
-            " ", "safety_limits:=true",  # Recommended for visualization
-        ]
-    )
+def launch_setup(context, *args, **kwargs):
+    ur_type = LaunchConfiguration('ur_type').perform(context)
 
     rsp_node = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='robot_state_publisher',
         output='screen',
-        condition=IfCondition(LaunchConfiguration("launch_rsp")),
-        parameters=[{
-            'robot_description': robot_description_content
-        }]
+        condition=IfCondition(LaunchConfiguration('launch_rsp')),
+        parameters=[{'robot_description': robot_description_command(ur_type)}],
     )
 
     jsp_node = Node(
         package='joint_state_publisher_gui',
         executable='joint_state_publisher_gui',
         name='joint_state_publisher_gui',
-        condition=IfCondition(LaunchConfiguration("launch_jsp"))
+        condition=IfCondition(LaunchConfiguration('launch_jsp')),
     )
 
     kine_env_node = Node(
@@ -72,10 +32,7 @@ def generate_launch_description():
         executable='kine_environment',
         name='kine_environment',
         output='screen',
-        parameters=[{
-            'use_sim_time': False,
-            'goal_planning': False
-        }]
+        parameters=[{'use_sim_time': False, 'goal_planning': False}],
     )
 
     rviz_node = Node(
@@ -84,14 +41,23 @@ def generate_launch_description():
         name='rviz2',
         output='screen',
         arguments=['-d', PathJoinSubstitution([
-            FindPackageShare("ur_description"),
-            "rviz",
-            "view_robot.rviz"
+            FindPackageShare('ur_description'), 'rviz', 'view_robot.rviz'
         ])],
-        condition=IfCondition(LaunchConfiguration("launch_rviz")),
+        condition=IfCondition(LaunchConfiguration('launch_rviz')),
     )
 
+    return [rsp_node, jsp_node, rviz_node, kine_env_node]
+
+
+def generate_launch_description():
     return LaunchDescription([
-        ur_type_arg, launch_rviz_arg, launch_jsp_arg, launch_rsp_arg,
-        rsp_node, jsp_node, rviz_node, kine_env_node
+        DeclareLaunchArgument('ur_type', default_value='ur5e',
+                              description='Which UR robot to display (ur3, ur5, ur5e, ur10, ur10e)'),
+        DeclareLaunchArgument('launch_rviz', default_value='true',
+                              description='Whether to launch RViz2'),
+        DeclareLaunchArgument('launch_jsp', default_value='false',
+                              description='Whether to launch the Joint State Publisher GUI'),
+        DeclareLaunchArgument('launch_rsp', default_value='true',
+                              description='Whether to launch the Robot State Publisher'),
+        OpaqueFunction(function=launch_setup),
     ])

@@ -9,7 +9,7 @@
 
     <license>Apache License 2.0</license>
 
-    <buildtool_depend>ament_cmake</buildtool_depend>
+    <buildtool_depend>ament_python</buildtool_depend>
 
     <depend>ur_description</depend>
     <depend>ur_moveit_config</depend>
@@ -18,6 +18,6 @@
     <exec_depend>moveit_planners_ompl</exec_depend>
 
     <export>
-        <build_type>ament_cmake</build_type>
+        <build_type>ament_python</build_type>
     </export>
 </package>
