@@ -40,7 +40,7 @@ def generate_launch_description():
             " ",
             PathJoinSubstitution([FindPackageShare("ur_description"), "urdf", "ur.urdf.xacro"]),
             " ", "name:=ur",
-            " ", f"ur_type:=", ur_type,
+            " ", "ur_type:=", ur_type,
             " ", "joint_limit_params:=", ur_config_path, "/joint_limits.yaml",
             " ", "kinematics_params:=", ur_config_path, "/default_kinematics.yaml",
             " ", "physical_params:=", ur_config_path, "/physical_parameters.yaml",
