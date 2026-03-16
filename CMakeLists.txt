@@ -21,9 +21,18 @@ add_subdirectory(src/kine)
 
 
 # ---- colcon build target ----
-add_custom_target(colcon_build
-        COMMAND colcon build --base-paths src --merge-install --event-handlers console_direct+
-        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        USES_TERMINAL
-        COMMENT "Running colcon build --merge-install (Windows)"
-)
+if (WIN32)
+    add_custom_target(colcon_build
+            COMMAND colcon build --base-paths src --merge-install --event-handlers console_direct+
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            USES_TERMINAL
+            COMMENT "Running colcon build --merge-install (Windows)"
+    )
+else ()
+    add_custom_target(colcon_build
+            COMMAND colcon build --base-paths src --symlink-install --event-handlers console_direct+
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+            USES_TERMINAL
+            COMMENT "Running colcon build --merge-install (Unix)"
+    )
+endif ()

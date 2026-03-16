@@ -5,6 +5,8 @@
     <General>
       <!-- Disable multicast — unreliable on Docker bridge networks -->
       <AllowMulticast>false</AllowMulticast>
+      <!-- Pin to ur_net interface, preventing CycloneDDS from picking the wrong one -->
+      <NetworkInterfaceAddress>172.20.0.3</NetworkInterfaceAddress>
     </General>
     <Discovery>
       <!-- Explicit unicast peers — avoids multicast discovery race at startup -->
@@ -12,7 +14,6 @@
         <Peer Address="172.20.0.3"/>  <!-- ur_driver -->
         <Peer Address="172.20.0.4"/>  <!-- ros2_dev -->
       </Peers>
-      <!-- Faster initial discovery -->
       <ParticipantIndex>auto</ParticipantIndex>
     </Discovery>
   </Domain>

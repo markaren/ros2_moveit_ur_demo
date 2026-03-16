@@ -30,7 +30,7 @@ services:
       - CYCLONEDDS_URI=/cyclonedds.xml
     volumes:
       - ./docker_files/driver_entrypoint.sh:/entrypoint.sh:ro
-      - ./docker_files/cyclonedds.xml:/cyclonedds.xml:ro
+      - ./docker_files/cyclonedds_driver.xml:/cyclonedds.xml:ro
     # Docker Desktop host networking: container uses Windows network stack directly
     # Requires "Enable host networking" in Docker Desktop settings (already enabled)
     networks:
@@ -61,7 +61,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /mnt/wslg:/mnt/wslg:rw
       - ./docker_files/dev_entrypoint.sh:/entrypoint.sh:ro
-      - ./docker_files/cyclonedds.xml:/cyclonedds.xml:ro
+      - ./docker_files/cyclonedds_dev.xml:/cyclonedds.xml:ro
       # ROS2 workspace
       - ./src:/ros2_ws/src:rw
        # ignore host version of install/build to avoid conflicts with container build; container will have its own install/ from building the workspace
