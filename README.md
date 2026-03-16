@@ -29,7 +29,7 @@ trajectory with MoveIt, and executes it on receipt of a message on `execute_plan
 ### `kine_environment`
 3D visualiser for URDF robot models. Subscribes to `/joint_states` to reflect the 
 current robot state and to `/display_planned_path` to preview planned trajectories. 
-In goal-planning mode, provides an interactive gizmo for setting target poses.
+In goal-planning mode, it provides an interactive gizmo for setting target poses.
 
 #### Gizmo controls
 
@@ -88,10 +88,13 @@ ros2 launch ur_bringup move_robot.launch.py fake_controller:=false launch_rviz:=
 
 ## Quick reference
 
+Premade UR/ROS tools:
 ```bash
 # Start Docker environment
 docker compose down # stop and remove old containers/volumes
 docker compose up --build # start new containers (build if needed)
+
+# Access URsim container shell in another terminal
 docker exec -it ursim-ros2_dev-1 bash -c "cd ros2_ws && bash" 
 
 # Check connectivity (sometimes nothing appears, try restarting container or resetting the daemon)
@@ -100,12 +103,17 @@ ros2 topic echo /joint_states --once
 # Test default Moveit configuration (no custom nodes, just MoveIt + RViz)
 ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur5e launch_rviz:=true
 
+```
 
-# Build and test custom workspace 
+Custom workspace:
+```bash
+# Inside ursim container:
+
+# Build custom workspace 
 colcon build --symlink-install --base-paths src
 source install/setup.sh 
 
-# Launch (fake controller - works on Linux and Windows, no docker or URsim needed)
+# Launch (fake controller - works on Linux and Windows. No docker or URsim needed)
 ros2 launch ur_bringup move_robot.launch.py fake_controller:=true launch_rviz:=false
 
 # Launch (URsim / real hardware)
