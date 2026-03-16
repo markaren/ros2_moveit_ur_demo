@@ -11,6 +11,7 @@
 #include <threepp/core/Clock.hpp>
 #include <threepp/helpers/GridHelper.hpp>
 #include <threepp/input/IOCapture.hpp>
+#include <threepp/lights/AmbientLight.hpp>
 #include <threepp/lights/DirectionalLight.hpp>
 #include <threepp/loaders/AssimpLoader.hpp>
 #include <threepp/loaders/URDFLoader.hpp>
@@ -33,21 +34,14 @@ namespace {
     }
 
     geometry_msgs::msg::Pose toRosPose(const Vector3& pos, const Quaternion& q) {
-        Quaternion correction;
-        correction.setFromAxisAngle(Vector3::X(), math::PI / 2);
-
-        Quaternion rosQuat;
-        rosQuat.multiplyQuaternions(correction, q);
-
         geometry_msgs::msg::Pose pose;
         pose.position.x = pos.x;
-        pose.position.y = -pos.z;
-        pose.position.z = pos.y;
-        pose.orientation.x = rosQuat.x;
-        pose.orientation.y = rosQuat.y;
-        pose.orientation.z = rosQuat.z;
-        pose.orientation.w = rosQuat.w;
-
+        pose.position.y = pos.y;
+        pose.position.z = pos.z;
+        pose.orientation.x = q.x;
+        pose.orientation.y = q.y;
+        pose.orientation.z = q.z;
+        pose.orientation.w = q.w;
         return pose;
     }
 
@@ -151,18 +145,20 @@ void KineEnvironmentNode::run() {
     Canvas canvas("Kine Environment");
     GLRenderer renderer(canvas.size());
 
+    Object3D::defaultUp = {0, 0, 1}; // ROS convention is Z-up
+
     Scene scene;
     scene.background = Color::aliceblue;
 
-    const auto light = DirectionalLight::create(Color::white);
-    light->position.set(1, 1, 1).normalize();
-    scene.add(light);
-
     PerspectiveCamera camera(60, canvas.aspect(), 0.1, 1000);
 
-    robot_->rotation.x = -math::PI / 2;
-    scene.add(robot_);
+    scene.add(AmbientLight::create(0xffffff, 0.4f));
 
+    const auto light = DirectionalLight::create(Color::white, 0.8f);
+    light->position.set(1, -1, 1).normalize();
+    scene.add(light);
+
+    scene.add(robot_);
 
     Box3 bb;
     bb.setFromObject(*robot_);
@@ -171,12 +167,13 @@ void KineEnvironmentNode::run() {
     const auto maxSizeComponent = static_cast<unsigned int>(std::round(
             std::max({robotSize.x, robotSize.y, robotSize.z})));
     const auto grid = GridHelper::create(maxSizeComponent * 2, 10, Color::grey, Color::red);
+    grid->rotation.x = math::PI / 2;
     scene.add(grid);
 
-    camera.position.set(robotSize.x, robotSize.y * 1.5f, robotSize.z * 3.f);
+    // Use Z-up camera to match ROS coordinate convention
+    camera.position.set(robotSize.x, -robotSize.z * 3.f, robotSize.z * 1.5f);
 
     OrbitControls orbitControls(camera, canvas);
-
 
     std::shared_ptr<Object3D> targetObject;
     std::unique_ptr<TransformControls> transformControls;
@@ -193,10 +190,8 @@ void KineEnvironmentNode::run() {
     });
 
     if (goal_planning_) {
-        planner_ghost_->rotation.x = -math::PI / 2;
         scene.add(planner_ghost_);
 
-        ik_ghost_->rotation.x = -math::PI / 2;
         scene.add(ik_ghost_);
         ik_ghost_->visible = false;
 

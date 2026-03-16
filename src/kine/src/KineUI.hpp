@@ -107,18 +107,12 @@ protected:
             Quaternion q;
             q.setFromRotationMatrix(transform);
 
-            // Apply same ROS coordinate correction as toRosPose
-            Quaternion correction;
-            correction.setFromAxisAngle(Vector3::X(), math::PI / 2);
-            Quaternion rosQuat;
-            rosQuat.multiplyQuaternions(correction, q);
-
             Euler euler;
-            euler.setFromQuaternion(rosQuat);
+            euler.setFromQuaternion(q);
 
             ImGui::Separator();
             ImGui::Text("EE Position (m):");
-            ImGui::Text("  x=%.3f  y=%.3f  z=%.3f", pos.x, -pos.z, pos.y);
+            ImGui::Text("  x=%.3f  y=%.3f  z=%.3f", pos.x, pos.y, pos.z);
             ImGui::Text("EE Orientation RPY (deg):");
             ImGui::Text("  r=%.1f  p=%.1f  y=%.1f",
                         euler.x * math::RAD2DEG,
