@@ -5,9 +5,13 @@
     <General>
       <!-- Disable multicast — unreliable on Docker bridge networks -->
       <AllowMulticast>false</AllowMulticast>
-      <!-- Pin to ur_net interface, preventing CycloneDDS from picking the wrong one -->
-      <NetworkInterfaceAddress>172.20.0.4</NetworkInterfaceAddress>
+
+      <!-- Pin to ur_net interface (replaces deprecated NetworkInterfaceAddress) -->
+      <Interfaces>
+        <NetworkInterface address="172.20.0.4" multicast="false"/>
+      </Interfaces>
     </General>
+
     <Discovery>
       <!-- Explicit unicast peers — avoids multicast discovery race at startup -->
       <Peers>
@@ -15,6 +19,9 @@
         <Peer Address="172.20.0.4"/>  <!-- ros2_dev -->
       </Peers>
       <ParticipantIndex>auto</ParticipantIndex>
+      <!-- Re-announce every 1s so short-lived tools (ros2 topic echo) find
+           existing participants quickly even if the initial SPDP is dropped -->
+      <SPDPInterval>1s</SPDPInterval>
     </Discovery>
   </Domain>
 </CycloneDDS>
