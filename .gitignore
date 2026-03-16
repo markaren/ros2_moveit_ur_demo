@@ -5,3 +5,4 @@ log
 cmake-build-*
 imgui.ini
 *.bak
+__pycache__
