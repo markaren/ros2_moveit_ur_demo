@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <threepp/extras/imgui/ImguiContext.hpp>
+#include <threepp/math/Euler.hpp>
 #include <threepp/objects/Robot.hpp>
 
 using namespace threepp;
@@ -53,8 +54,6 @@ protected:
 
         ImGui::Begin("Controls");
 
-        ImGui::Checkbox("Show EE Trail", &showTrail_);
-
         if (ImGui::CollapsingHeader("Joints")) {
             std::unique_lock lock(robotMutex_);
             const auto infos = robot_->getArticulatedJointInfo();
@@ -94,6 +93,39 @@ protected:
                 pendingResetGizmoRequest_ = true;
             }
         }
+
+
+        ImGui::Checkbox("Show EE Trail", &showTrail_);
+
+        {
+            std::unique_lock lock(robotMutex_);
+            const auto transform = robot_->getEndEffectorTransform();
+            lock.unlock();
+
+            Vector3 pos;
+            pos.setFromMatrixPosition(transform);
+            Quaternion q;
+            q.setFromRotationMatrix(transform);
+
+            // Apply same ROS coordinate correction as toRosPose
+            Quaternion correction;
+            correction.setFromAxisAngle(Vector3::X(), math::PI / 2);
+            Quaternion rosQuat;
+            rosQuat.multiplyQuaternions(correction, q);
+
+            Euler euler;
+            euler.setFromQuaternion(rosQuat);
+
+            ImGui::Separator();
+            ImGui::Text("EE Position (m):");
+            ImGui::Text("  x=%.3f  y=%.3f  z=%.3f", pos.x, -pos.z, pos.y);
+            ImGui::Text("EE Orientation RPY (deg):");
+            ImGui::Text("  r=%.1f  p=%.1f  y=%.1f",
+                        euler.x * math::RAD2DEG,
+                        euler.y * math::RAD2DEG,
+                        euler.z * math::RAD2DEG);
+        }
+
 
         ImGui::End();
     }
