@@ -5,25 +5,29 @@ Currently unable to connect to ROS node from outside of docker, however, a devel
 
 ## Requirements
 
-- [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
-- [vcxsrv](https://github.com/marchaesen/vcxsrv/releases)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
-## Services
+### Windows specific
+- [vcxsrv](https://github.com/marchaesen/vcxsrv/releases) (Neded for running GUI apps like RViz within the dev container)
 
-| Service | Description |
-|---------|-------------|
-| `ursim` | Universal Robots simulator, accessible at `http://localhost:6080` |
+
+
+## Containers
+
+| Container   | Description |
+|-------------|-------------|
+| `ursim`     | Universal Robots simulator, accessible at `http://localhost:6080` |
 | `ur_driver` | ROS2 Jazzy `ur_robot_driver` connected to URSim |
-| `ros2_dev` | Interactive ROS2 development shell |
+| `ros2_dev`  | Interactive ROS2 development shell |
 
 ## Usage
 
-We first build a base image for `ur_driver` and `ros2_dev` containers:
+We first build a common base image for `ur_driver` and `ros2_dev` containers:
 
 ```bash
 docker build -t ros_ur_base:latest -f Dockerfile.base .
 ```
-Run the above from the `/docker_files`directory.
+Run the above from the `/docker_files` directory. You only need to do this once.
 
 To start the application framework, run (from any directory):
 
@@ -63,7 +67,6 @@ Inside the shell:
 
 ```bash
 # First run: reset the daemon so it discovers live nodes
-ros2 daemon stop
 ros2 node list      # shows all ur_driver nodes
 ros2 topic list     # shows all ur_driver topics
 ros2 topic echo /joint_states --once  # test connectivity
@@ -78,7 +81,7 @@ ros2 launch ur_robot_driver test_joint_trajectory_controller.launch.py
 
 ### Using MoveIt
 
-> Note: Run XLaunch on Windows before trying to run GUI apps within the dev container.
+_Note: Run XLaunch on Windows (install vcxsrv) before trying to run GUI apps within the dev container._
 
 ```bash
 ros2 launch ur_moveit_config ur_moveit.launch.py ur_type:=ur5e launch_rviz:=true
