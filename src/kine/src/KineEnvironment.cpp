@@ -16,6 +16,7 @@
 #include <threepp/loaders/AssimpLoader.hpp>
 #include <threepp/loaders/URDFLoader.hpp>
 #include <threepp/materials/MeshBasicMaterial.hpp>
+#include <threepp/objects/Mesh.hpp>
 #include <threepp/renderers/GLRenderTarget.hpp>
 #include <threepp/renderers/GLRenderer.hpp>
 #include <threepp/scenes/Scene.hpp>
@@ -171,7 +172,7 @@ void KineEnvironmentNode::run() {
     scene.add(grid);
 
     // Use Z-up camera to match ROS coordinate convention
-    camera.position.set(robotSize.x, -robotSize.z * 3.f, robotSize.z * 1.5f);
+    camera.position.set(robotSize.x, -robotSize.y * 3.f, robotSize.z * 3.f);
 
     OrbitControls orbitControls(camera, canvas);
 

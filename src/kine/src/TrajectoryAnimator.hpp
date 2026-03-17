@@ -2,12 +2,11 @@
 #ifndef TRAJECTORYANIMATOR_HPP
 #define TRAJECTORYANIMATOR_HPP
 
-
 #include <mutex>
 #include <vector>
 
 #include <moveit_msgs/msg/display_trajectory.hpp>
-#include <threepp/loaders/URDFLoader.hpp>
+#include <threepp/objects/Robot.hpp>
 
 class TrajectoryAnimator {
 public:
