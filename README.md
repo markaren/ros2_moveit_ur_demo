@@ -33,9 +33,9 @@ In goal-planning mode, it provides an interactive gizmo for setting target poses
 
 #### Gizmo controls
 
-**Q** — toggle between world/robot frame <br>
-**W** — set gizmo mode to translation <br>
-**E** — set gizmo mode to rotation <br>
+- **Q**: toggle between world/robot frame <br>
+- **W**: set gizmo mode to translation <br>
+- **E**: set gizmo mode to rotation <br>
 
 ---
 
@@ -55,7 +55,7 @@ The optional CLion integration assumes robostack is installed at `C:\robostack`.
 
 ## Building
 
-The workspace has a root `CMakeLists.txt` for IDE integration, so pass `--base-paths src` to colcon:
+The workspace has a root `CMakeLists.txt` for IDE integration, so pass `--base-paths src` to colcon when calling colcon from the terminal::
 
 ```bash
 # Linux
@@ -64,6 +64,8 @@ colcon build --symlink-install --base-paths src
 # Windows
 colcon build --merge-install --base-paths src
 ```
+
+Otherwise, just invoke the colcon_build targets within the IDE.
 
 ---
 
