@@ -33,13 +33,13 @@ To start the application framework, run (from any directory):
 
 **Windows:**
 ```bash
-docker compuse down # stop and remove old containers/volumes
+docker compose down # stop and remove old containers/volumes
 docker compose up --build 
 ```
 **Linux**
 ```bash                                                                                  
 xhost +local:docker
-docker compuse down
+docker compose down
 docker compose -f docker-compose.yml -f docker-compose.linux.yml up  
 ```
 
