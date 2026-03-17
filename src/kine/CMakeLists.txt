@@ -27,7 +27,7 @@ set(THREEPP_BUILD_EXAMPLES OFF)
 FetchContent_Declare(
         threepp
         GIT_REPOSITORY https://github.com/markaren/threepp.git
-        GIT_TAG fc20c97
+        GIT_TAG ffb7b22
 )
 FetchContent_MakeAvailable(threepp)
 
@@ -37,7 +37,7 @@ add_subdirectory(${threepp_SOURCE_DIR}/examples/external ${CMAKE_CURRENT_BINARY_
 
 add_executable(kine_environment kine_environment.cpp src/KineEnvironment.cpp src/TrajectoryAnimator.cpp)
 ament_target_dependencies(kine_environment rclcpp ament_index_cpp std_msgs sensor_msgs geometry_msgs moveit_ros_planning_interface)
-target_link_libraries(kine_environment threepp::threepp imgui assimp::assimp)
+target_link_libraries(kine_environment threepp::threepp imgui)
 
 install(TARGETS
         kine_environment

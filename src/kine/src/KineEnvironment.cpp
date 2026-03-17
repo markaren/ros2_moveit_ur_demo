@@ -13,7 +13,6 @@
 #include <threepp/input/IOCapture.hpp>
 #include <threepp/lights/AmbientLight.hpp>
 #include <threepp/lights/DirectionalLight.hpp>
-#include <threepp/loaders/AssimpLoader.hpp>
 #include <threepp/loaders/URDFLoader.hpp>
 #include <threepp/materials/MeshBasicMaterial.hpp>
 #include <threepp/objects/Mesh.hpp>
@@ -28,7 +27,6 @@ using namespace std::chrono_literals;
 namespace {
     std::shared_ptr<Robot> loadRobot(const std::string& urdf) {
         URDFLoader urdfLoader;
-        urdfLoader.setGeometryLoader(std::make_shared<AssimpLoader>());
 
         const auto share = ament_index_cpp::get_package_share_directory("ur_description");
         return urdfLoader.parse(share, urdf);
