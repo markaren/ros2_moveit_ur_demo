@@ -1,7 +1,9 @@
 
-#### Install RoboStack using Pixi
+## Install RoboStack using Pixi on Windows
 
 See the [RoboStack installation guide](https://robostack.github.io/GettingStarted.html) for detailed instructions on setting up the virtual environment and installing ROS 2 packages.
+
+> Advice: Create and place the pixi.toml in the folder `C:\robostack`
 
 You can use the following simplified `pixi.toml` in place of the one listed from robostack:
 
@@ -50,3 +52,5 @@ ros-jazzy-ur-moveit-config = "*"
 ros-jazzy-moveit = "*"
 
 ```
+
+Run `pixi shell -e jazzy` to source the environment.

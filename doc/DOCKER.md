@@ -50,7 +50,7 @@ Wait a few seconds for URSim to boot and `ur_driver` to connect. The very first 
 User interface: http://localhost:6080/vnc.html
 
 1. Power ON and START the robot from lower left menu option. Then exit menu.
-2. Navigate to Installation ->  URCaps -> External Control. Insert `172.20.0.3` as the Host IP.
+2. Navigate to Installation -> URCaps -> External Control. Insert `172.20.0.3` as the Host IP.
 3. Navigate to Program. Click URCaps/External Control.
 4. Navigate to Run. Press play.
 
@@ -66,7 +66,6 @@ docker exec -it ursim-ros2_dev-1 bash -c "cd ros2_ws && bash"
 Inside the shell:
 
 ```bash
-# First run: reset the daemon so it discovers live nodes
 ros2 node list      # shows all ur_driver nodes
 ros2 topic list     # shows all ur_driver topics
 ros2 topic echo /joint_states --once  # test connectivity
@@ -74,7 +73,7 @@ ros2 topic echo /joint_states --once  # test connectivity
 
 ### Test joint_trajectory_controller
 
-First move the robot to HOME position within URsim, then run:
+First move the robot to `HOME` position within URsim, then run:
 ```bash
 ros2 launch ur_robot_driver test_joint_trajectory_controller.launch.py
 ```
