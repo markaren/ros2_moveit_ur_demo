@@ -74,7 +74,9 @@ public:
                     }
                     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
                 },
-                [](const std::shared_ptr<GoalHandleExecute>) {
+                [this](const std::shared_ptr<GoalHandleExecute>) {
+                    std::lock_guard lock(move_group_mutex_);
+                    move_group_->stop();
                     return rclcpp_action::CancelResponse::ACCEPT;
                 },
                 [this](std::shared_ptr<GoalHandleExecute> goal_handle) {
@@ -92,7 +94,9 @@ public:
                     }
                     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
                 },
-                [](const std::shared_ptr<GoalHandlePlanAndExecute>) {
+                [this](const std::shared_ptr<GoalHandlePlanAndExecute>) {
+                    std::lock_guard lock(move_group_mutex_);
+                    move_group_->stop();
                     return rclcpp_action::CancelResponse::ACCEPT;
                 },
                 [this](std::shared_ptr<GoalHandlePlanAndExecute> goal_handle) {
@@ -226,9 +230,9 @@ private:
                 std::lock_guard lock(plan_mutex_);
                 last_plan_ = std::move(candidate);
                 has_plan_ = true;
+                result->trajectory_points = static_cast<uint32_t>(last_plan_.trajectory.joint_trajectory.points.size());
             }
             result->success = true;
-            result->trajectory_points = static_cast<uint32_t>(last_plan_.trajectory.joint_trajectory.points.size());
             result->message = "Planning succeeded";
             RCLCPP_INFO(get_logger(), "Plan succeeded (%u points)", result->trajectory_points);
             goal_handle->succeed(result);
@@ -318,7 +322,7 @@ private:
         }
 
         // Phase 2: Execute
-        state_.store(State::EXECUTING, std::memory_order_relaxed);
+        state_.store(State::EXECUTING, std::memory_order_release);
         feedback->phase = "EXECUTING";
         goal_handle->publish_feedback(feedback);
 
