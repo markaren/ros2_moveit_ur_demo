@@ -1,5 +1,5 @@
 """
-Base launch file: robot_state_publisher + fake_controller.
+Base launch file: robot_state_publisher + simulated_controller.
 Intended to be included by other launch files, but can also run standalone.
 """
 
@@ -30,15 +30,15 @@ def launch_setup(context, *args, **kwargs):
         parameters=[{'robot_description': robot_description_content, 'use_sim_time': False}],
     )
 
-    fake_controller = Node(
-        package='fake_controller',
-        executable='fake_controller_node',
-        name='fake_controller_node',
+    simulated_controller = Node(
+        package='simulated_controller',
+        executable='simulated_controller_node',
+        name='simulated_controller_node',
         output='screen',
         parameters=[{'joint_names': JOINT_NAMES, 'use_sim_time': False}],
     )
 
-    return [rsp, fake_controller]
+    return [rsp, simulated_controller]
 
 
 def generate_launch_description():

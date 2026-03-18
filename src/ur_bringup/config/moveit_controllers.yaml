@@ -4,9 +4,9 @@ move_group:
 
     moveit_simple_controller_manager:
       controller_names:
-        - fake_ur_manipulator_controller
+        - simulated_joint_controller
 
-      fake_ur_manipulator_controller:
+      simulated_joint_controller:
         type: FollowJointTrajectory
         action_ns: follow_joint_trajectory
         default: true

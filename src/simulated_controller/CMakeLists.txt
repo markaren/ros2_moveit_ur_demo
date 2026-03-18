@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(fake_controller)
+project(simulated_controller)
 
 if(POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)
@@ -25,8 +25,8 @@ find_package(trajectory_msgs REQUIRED)
 find_package(control_msgs REQUIRED)
 
 
-add_executable(fake_controller_node fake_controller.cpp)
-ament_target_dependencies(fake_controller_node
+add_executable(${PROJECT_NAME}_node simulated_controller.cpp)
+ament_target_dependencies(${PROJECT_NAME}_node
         rclcpp
         rclcpp_action
         std_msgs
@@ -37,7 +37,7 @@ ament_target_dependencies(fake_controller_node
 
 
 install(TARGETS
-        fake_controller_node
+        ${PROJECT_NAME}_node
         DESTINATION lib/${PROJECT_NAME})
 
 

@@ -24,25 +24,21 @@ using namespace std::chrono_literals;
  * topic for immediate position overrides.
  *
  * **Action:**
- * - `/<controller_name>/follow_joint_trajectory` (control_msgs/FollowJointTrajectory)
+ * - `/simulated_joint_controller/follow_joint_trajectory` (control_msgs/FollowJointTrajectory)
  *
  * **Parameters:**
  * - `joint_names` (string[]): names of the joints to control.
- * - `controller_name` (string, default "fake_ur_manipulator_controller"): action namespace.
  * - `publish_rate_hz` (double, default 50): joint-state publish rate.
  * - `execution_rate_hz` (double, default 125): trajectory interpolation rate.
  * - `interpolation` (string, default "cubic"): "cubic" or "linear".
  */
-class FakeController: public rclcpp::Node {
+class SimulatedJointController: public rclcpp::Node {
 public:
-    FakeController()
-        : Node("fake_controller_node") {
+    SimulatedJointController()
+        : Node("simulated_joint_controller") {
         // --- Parameters ---
         jointNames_ = this->declare_parameter<std::vector<std::string>>(
                 "joint_names", std::vector<std::string>{});
-
-        controller_name_ = this->declare_parameter<std::string>(
-                "controller_name", "fake_ur_manipulator_controller");
 
         publish_rate_hz_ = this->declare_parameter<double>("publish_rate_hz", 50.0);
         execution_rate_hz_ = this->declare_parameter<double>("execution_rate_hz", 125.0);
@@ -75,13 +71,13 @@ public:
                 });
 
         // --- Action server ---
-        const std::string action_name = "/" + controller_name_ + "/follow_joint_trajectory";
+        const std::string action_name = "/simulated_joint_controller/follow_joint_trajectory";
         action_server_ = rclcpp_action::create_server<FollowJT>(
                 this,
                 action_name,
-                std::bind(&FakeController::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
-                std::bind(&FakeController::handle_cancel, this, std::placeholders::_1),
-                std::bind(&FakeController::handle_accepted, this, std::placeholders::_1));
+                std::bind(&SimulatedJointController::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
+                std::bind(&SimulatedJointController::handle_cancel, this, std::placeholders::_1),
+                std::bind(&SimulatedJointController::handle_accepted, this, std::placeholders::_1));
 
 
         joint_cmd_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
@@ -104,7 +100,7 @@ public:
                     interpolation_method_.c_str());
     }
 
-    ~FakeController() override {
+    ~SimulatedJointController() override {
         shutdown_requested_.store(true);
         cancel_execution();
     }
@@ -219,7 +215,7 @@ private:
         cancel_execution();
         if (execution_thread_.joinable()) { execution_thread_.join(); }
         cancel_requested_.store(false);
-        execution_thread_ = std::jthread{&FakeController::execute_goal, this, goal_handle};
+        execution_thread_ = std::jthread{&SimulatedJointController::execute_goal, this, goal_handle};
     }
 
     void cancel_execution() { cancel_requested_.store(true); }
@@ -372,7 +368,7 @@ private:
 
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<FakeController>();
+    auto node = std::make_shared<SimulatedJointController>();
     rclcpp::spin(node);
     rclcpp::shutdown();
     return 0;

@@ -3,8 +3,8 @@
 A ROS 2 workspace demonstrating MoveIt motion planning with Universal Robots (UR) arms.
 
 Supports three execution targets:
-- **Fake controller** — fully simulated, no hardware required (Linux and Windows)
-- **URsim** — UR's official robot simulator (Docker, Linux)
+- **Simulated joint controller** — fully simulated joint controller, no hardware required (works without Docker/URsim on Linux and Windows)
+- **URsim** — UR's official robot simulator controlled via `ur_robot_driver` (Docker, Linux)
 - **Real hardware** — via `ur_robot_driver` running somewhere on the network.
 
 See [DOCKER.md](doc/DOCKER.md) for Docker/URsim setup and [ROBOSTACK.md](doc/ROBOSTACK.md) 
@@ -16,8 +16,8 @@ for Windows setup.
 
 ## Nodes
 
-### `fake_controller`
-Simulates a UR joint trajectory controller without real hardware or `ros2_control`.
+### `simulated_controller`
+Simulates a joint trajectory controller without real hardware or `ros2_control`.
 Accepts `FollowJointTrajectory` action goals, interpolates joint positions over time, 
 and publishes them on `/joint_states` — giving MoveIt a complete plan-and-execute loop 
 in simulation.
@@ -76,14 +76,14 @@ Otherwise, just invoke the colcon_build targets within the IDE.
 ros2 launch ur_bringup display_robot.launch.py launch_rviz:=false
 ```
 
-**MoveIt planning + fake controller (no hardware needed):**
+**MoveIt planning + simulated joint controller (no hardware needed):**
 ```bash
 ros2 launch ur_bringup move_robot.launch.py launch_rviz:=false
 ```
 
 **MoveIt planning + real robot or URsim:**
 ```bash
-ros2 launch ur_bringup move_robot.launch.py fake_controller:=false launch_rviz:=false
+ros2 launch ur_bringup move_robot.launch.py simulated_controller:=false launch_rviz:=false
 ```
 
 ---
@@ -115,11 +115,11 @@ Custom workspace:
 colcon build --symlink-install --base-paths src
 source install/setup.sh 
 
-# Launch (fake controller - works on Linux and Windows. No docker or URsim needed)
-ros2 launch ur_bringup move_robot.launch.py fake_controller:=true launch_rviz:=false
+# Launch (simulated controller - Runs without docker and URsim)
+ros2 launch ur_bringup move_robot.launch.py sim_controller:=true launch_rviz:=false
 
 # Launch (URsim / real hardware)
-ros2 launch ur_bringup move_robot.launch.py fake_controller:=false launch_rviz:=false
+ros2 launch ur_bringup move_robot.launch.py sim_controller:=false launch_rviz:=false
 ```
 
 ---

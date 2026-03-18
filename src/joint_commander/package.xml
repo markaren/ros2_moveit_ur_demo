@@ -3,7 +3,7 @@
 <package format="2">
     <name>joint_commander</name>
     <version>0.0.1</version>
-    <description>Example Python nodes for sending commands to fake_controller</description>
+    <description>Example Python nodes for sending commands to simulated_controller</description>
 
     <maintainer email="laht@ntnu.no">Lars Ivar Hatledal</maintainer>
 

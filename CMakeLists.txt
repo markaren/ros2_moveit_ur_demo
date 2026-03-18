@@ -18,7 +18,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/install/include/target_planner"
 
 
 # Add each cpp package as a subdirectory
-add_subdirectory(src/fake_controller)
+add_subdirectory(src/simulated_controller)
 add_subdirectory(src/target_planner)
 add_subdirectory(src/kine)
 

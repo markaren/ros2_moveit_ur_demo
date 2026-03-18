@@ -23,7 +23,7 @@ def load_yaml(package_name, file_path):
 
 
 def launch_setup(context, *args, **kwargs):
-    fake_controller = LaunchConfiguration("fake_controller").perform(context).lower() == "true"
+    simulated_controller = LaunchConfiguration("sim_controller").perform(context).lower() == "true"
     ur_type = LaunchConfiguration("ur_type").perform(context)
 
     kine_env_node = Node(
@@ -50,7 +50,7 @@ def launch_setup(context, *args, **kwargs):
 
     move_group_params = [moveit_config.to_dict()]
 
-    if fake_controller:
+    if simulated_controller:
         move_group_params.append(PathJoinSubstitution(
             [FindPackageShare("ur_bringup"), "config", "moveit_controllers.yaml"]
         ))
@@ -94,15 +94,15 @@ def generate_launch_description():
                               description="Which UR robot to load (e.g., ur3, ur5, ur5e, ur10, ur10e)"),
         DeclareLaunchArgument("launch_rviz", default_value="true",
                               description="Whether to launch RViz2"),
-        DeclareLaunchArgument("fake_controller", default_value="true",
-                              description="Whether to launch a fake controller"),
+        DeclareLaunchArgument("sim_controller", default_value="true",
+                              description="Whether to launch a simulated controller"),
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource([
-                PathJoinSubstitution([FindPackageShare('ur_bringup'), 'launch', 'fake_controller_stack.launch.py'])
+                PathJoinSubstitution([FindPackageShare('ur_bringup'), 'launch', 'sim_controller_stack.launch.py'])
             ]),
             launch_arguments={'ur_type': ur_type}.items(),
-            condition=IfCondition(LaunchConfiguration("fake_controller")),
+            condition=IfCondition(LaunchConfiguration("sim_controller")),
         ),
 
         OpaqueFunction(function=launch_setup),

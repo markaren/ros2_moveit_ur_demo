@@ -5,7 +5,7 @@ Sends a FollowJointTrajectory action goal to a joint trajectory controller.
 Works with fake_controller, URSim, or a real UR robot — set the
 'controller_name' parameter to match the active controller:
 
-  fake_controller:               fake_ur_manipulator_controller  (default)
+  simulated_controller:               simulated_joint_controller  (default)
   real robot / URSim (ur_robot_driver): scaled_joint_trajectory_controller
 
 Usage: tweak WAYPOINTS below and run via action_commander.launch.py.
@@ -47,7 +47,7 @@ class ActionCommander(Node):
     def __init__(self):
         super().__init__('action_commander')
         controller = self.declare_parameter(
-            'controller_name', 'fake_ur_manipulator_controller'
+            'controller_name', 'simulated_joint_controller'
         ).get_parameter_value().string_value
         action_name = f'/{controller}/follow_joint_trajectory'
         self._client = ActionClient(self, FollowJointTrajectory, action_name)
