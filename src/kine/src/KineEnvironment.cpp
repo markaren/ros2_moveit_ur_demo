@@ -377,7 +377,7 @@ void KineEnvironmentNode::run() {
                 const auto transform = robot_->getEndEffectorTransform();
                 targetObject->position.setFromMatrixPosition(transform);
                 targetObject->quaternion.setFromRotationMatrix(transform);
-                ik_ghost_->setJointValues(robot_->jointValues());
+                { std::lock_guard lock(ik_ghost_mutex_); ik_ghost_->setJointValues(robot_->jointValues()); }
             }
         }
 
@@ -404,6 +404,7 @@ void KineEnvironmentNode::run() {
 
 void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose) {
     if (!ik_client_->wait_for_service(0s)) return;
+    if (ik_pending_.exchange(true)) return;
 
     auto request = std::make_shared<moveit_msgs::srv::GetPositionIK::Request>();
     request->ik_request.group_name = "ur_manipulator";
@@ -412,11 +413,14 @@ void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose)
     request->ik_request.pose_stamped.pose = target_pose;
     request->ik_request.avoid_collisions = false;
 
-    auto& robot_state = request->ik_request.robot_state.joint_state;
-    robot_state.name = jointNames_;
-    robot_state.position.resize(ik_ghost_->numDOF());
-    for (size_t i = 0; i < ik_ghost_->numDOF(); ++i) {
-        robot_state.position[i] = static_cast<double>(ik_ghost_->getJointValue(i));
+    {
+        std::lock_guard lock(ik_ghost_mutex_);
+        auto& robot_state = request->ik_request.robot_state.joint_state;
+        robot_state.name = jointNames_;
+        robot_state.position.resize(ik_ghost_->numDOF());
+        for (size_t i = 0; i < ik_ghost_->numDOF(); ++i) {
+            robot_state.position[i] = static_cast<double>(ik_ghost_->getJointValue(i));
+        }
     }
 
     ik_client_->async_send_request(
@@ -425,10 +429,12 @@ void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose)
                 const auto& response = future.get();
                 if (response->error_code.val == moveit_msgs::msg::MoveItErrorCodes::SUCCESS) {
                     const auto& positions = response->solution.joint_state.position;
+                    std::lock_guard lock(ik_ghost_mutex_);
                     for (size_t i = 0; i < positions.size() && i < ik_ghost_->numDOF(); ++i) {
                         ik_ghost_->setJointValue(i, static_cast<float>(positions[i]));
                     }
                 }
+                ik_pending_ = false;
             });
 }
 

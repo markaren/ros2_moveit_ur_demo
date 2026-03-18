@@ -56,10 +56,12 @@ private:
     std::atomic<bool> servers_ready_{false};
     std::atomic<bool> action_busy_{false};
     std::atomic<bool> has_plan_{false};
+    std::atomic<bool> ik_pending_{false};
     std::mutex status_mutex_;
     std::string action_status_;
 
     std::mutex robot_mutex_;
+    std::mutex ik_ghost_mutex_;
     std::jthread thread_;
 
     void run();
