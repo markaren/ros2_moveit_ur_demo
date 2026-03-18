@@ -327,22 +327,35 @@ Observer at waypoints kjøres på URSim-roboten i nettleseren.
 
 ---
 
-## Del C — Skriv en egen planner-node
+## Del C — Lag en egen ROS 2-pakke med planner-node
 
-Du skal nå skrive din egen Python-node som bruker `PlanAndExecute`-actionen fra `target_planner` til å sende roboten til en sekvens av kartesiske mål-poser (posisjon + orientering).
+Du skal nå opprette en egen ROS 2 Python-pakke og skrive en node som bruker `PlanAndExecute`-actionen fra `target_planner` til å sende roboten til en sekvens av kartesiske mål-poser (posisjon + orientering).
 
-### Krav
+### C1: Opprett pakken
 
-Noden skal:
-1. Koble til `/plan_and_execute` action-serveren
-2. Definere minst **3 egne mål-poser** (posisjon + orientering i `base_link`-rammen)
-3. Sende hver pose som et action goal, og vente på resultat før neste sendes
-4. Logge feedback underveis (fase: planning/executing)
-5. Logge resultatet for hver pose (suksess eller feilmelding)
+Naviger til `src/`-mappen og bruk `ros2 pkg create`:
 
-### Code skeleton
+```bash
+cd src
+ros2 pkg create my_planner --build-type ament_python --dependencies rclpy geometry_msgs target_planner
+```
 
-Fyll inn `TODO`-kommentarene:
+Dette oppretter følgende struktur:
+
+```
+src/my_planner/
+├── my_planner/
+│   └── __init__.py
+├── package.xml
+├── setup.cfg
+├── setup.py
+└── resource/
+    └── my_planner
+```
+
+### C2: Skriv noden
+
+Opprett filen `src/my_planner/my_planner/planner_node.py` og fyll inn `TODO`-kommentarene:
 
 ```python
 """
@@ -432,15 +445,39 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
-
-
-if __name__ == '__main__':
-    main()
 ```
 
-### Test noden
+### C3: Registrer noden som executable
 
-**Mot simulert kontroller** (enklest å starte med):
+Åpne `src/my_planner/setup.py` og legg til en entry point under `console_scripts`:
+
+```python
+entry_points={
+    'console_scripts': [
+        'planner_node = my_planner.planner_node:main',
+    ],
+},
+```
+
+### C4: Bygg og kjør
+
+Bygg pakken fra workspace-roten:
+
+**Windows (RoboStack):**
+```bash
+colcon build --merge-install --base-paths src --packages-select my_planner --cmake-args -G Ninja
+```
+
+**Linux:**
+```bash
+colcon build --symlink-install --base-paths src --packages-select my_planner
+```
+
+Source på nytt og kjør:
+
+```bash
+# Source install-scriptet (se A1 for riktig kommando for ditt OS)
+```
 
 Start MoveIt-stacken i en terminal:
 ```bash
@@ -449,7 +486,7 @@ ros2 launch ur_bringup move_robot.launch.py launch_rviz:=false
 
 Kjør din node i en annen terminal:
 ```bash
-python my_planner_node.py
+ros2 run my_planner planner_node
 ```
 
 Observer i Kine at roboten planlegger og beveger seg til hver mål-pose i sekvens.
