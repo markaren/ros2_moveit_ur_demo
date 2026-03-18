@@ -1,5 +1,5 @@
 #include <geometry_msgs/msg/pose_stamped.hpp>
-#include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/move_group_interface/move_group_interface.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
@@ -9,6 +9,8 @@
 
 #include <mutex>
 #include <thread>
+
+#include <rcl_interfaces/msg/set_parameters_result.hpp>
 
 /**
  * @brief ROS 2 node that exposes MoveIt planning and execution as three actions,
@@ -23,11 +25,11 @@
  * - `plan_and_execute` (target_planner/action/PlanAndExecute): plan then immediately execute.
  *
  * **Parameters:**
- * - `planning_time` (double, default 5.0): max planning time in seconds.
- * - `goal_position_tolerance` (double, default 0.01): position tolerance in metres.
- * - `goal_orientation_tolerance` (double, default 0.1): orientation tolerance in radians.
- * - `max_velocity_scaling_factor` (double, default 1.0): velocity scaling [0, 1].
- * - `max_acceleration_scaling_factor` (double, default 1.0): acceleration scaling [0, 1].
+ * - `planning_time` (double): max planning time in seconds.
+ * - `goal_position_tolerance` (double): position tolerance in metres.
+ * - `goal_orientation_tolerance` (double): orientation tolerance in radians.
+ * - `max_velocity_scaling_factor` (double): velocity scaling [0, 1].
+ * - `max_acceleration_scaling_factor` (double): acceleration scaling [0, 1].
  */
 class TargetPlanner: public rclcpp::Node {
 public:
@@ -42,9 +44,9 @@ public:
     TargetPlanner(): Node("target_planner") {
         declare_parameter("planning_time", 5.0);
         declare_parameter("goal_position_tolerance", 0.01);
-        declare_parameter("goal_orientation_tolerance", 0.1);
-        declare_parameter("max_velocity_scaling_factor", 1.0);
-        declare_parameter("max_acceleration_scaling_factor", 1.0);
+        declare_parameter("goal_orientation_tolerance", 0.01);
+        declare_parameter("max_velocity_scaling_factor", 0.8);
+        declare_parameter("max_acceleration_scaling_factor", 0.8);
 
         plan_server_ = rclcpp_action::create_server<Plan>(
                 this, "plan",
@@ -56,9 +58,7 @@ public:
                     }
                     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
                 },
-                [](const std::shared_ptr<GoalHandlePlan>) {
-                    return rclcpp_action::CancelResponse::ACCEPT;
-                },
+                [](const std::shared_ptr<GoalHandlePlan>) { return rclcpp_action::CancelResponse::ACCEPT; },
                 [this](std::shared_ptr<GoalHandlePlan> goal_handle) {
                     if (plan_thread_.joinable()) plan_thread_.join();
                     plan_thread_ = std::thread(&TargetPlanner::do_plan, this, goal_handle);
@@ -113,6 +113,29 @@ public:
         move_group_->setGoalOrientationTolerance(get_parameter("goal_orientation_tolerance").as_double());
         move_group_->setMaxVelocityScalingFactor(get_parameter("max_velocity_scaling_factor").as_double());
         move_group_->setMaxAccelerationScalingFactor(get_parameter("max_acceleration_scaling_factor").as_double());
+        param_callback_handle_ = add_on_set_parameters_callback(
+                [this](const std::vector<rclcpp::Parameter>& params)
+            -> rcl_interfaces::msg::SetParametersResult {
+                    auto reject = [](const std::string& reason) {
+                        rcl_interfaces::msg::SetParametersResult r;
+                        r.successful = false;
+                        r.reason = reason;
+                        return r;
+                    };
+
+                    for (const auto& p : params) { if (p.get_name() == "planning_time") { if (p.as_double() <= 0.0) { return reject("planning_time must be > 0"); } } else if (p.get_name() == "goal_position_tolerance") { if (p.as_double() <= 0.0) { return reject("goal_position_tolerance must be > 0"); } } else if (p.get_name() == "goal_orientation_tolerance") { if (p.as_double() <= 0.0) { return reject("goal_orientation_tolerance must be > 0"); } } else if (p.get_name() == "max_velocity_scaling_factor") { if (p.as_double() <= 0.0 || p.as_double() > 1.0) { return reject("max_velocity_scaling_factor must be in (0, 1]"); } } else if (p.get_name() == "max_acceleration_scaling_factor") { if (p.as_double() <= 0.0 || p.as_double() > 1.0) { return reject("max_acceleration_scaling_factor must be in (0, 1]"); } } }
+
+                    std::lock_guard lock(move_group_mutex_);
+                    for (const auto& p : params) {
+                        if (p.get_name() == "planning_time") { move_group_->setPlanningTime(p.as_double()); } else if (p.get_name() == "goal_position_tolerance") { move_group_->setGoalPositionTolerance(p.as_double()); } else if (p.get_name() == "goal_orientation_tolerance") { move_group_->setGoalOrientationTolerance(p.as_double()); } else if (p.get_name() == "max_velocity_scaling_factor") { move_group_->setMaxVelocityScalingFactor(p.as_double()); } else if (p.get_name() == "max_acceleration_scaling_factor") { move_group_->setMaxAccelerationScalingFactor(p.as_double()); }
+                        RCLCPP_INFO(get_logger(), "Parameter '%s' updated to %s",
+                                    p.get_name().c_str(), p.value_to_string().c_str());
+                    }
+                    rcl_interfaces::msg::SetParametersResult result;
+                    result.successful = true;
+                    return result;
+                });
+
         RCLCPP_INFO(get_logger(), "TargetPlanner ready");
     }
 
@@ -127,9 +150,12 @@ private:
 
     static const char* state_name(State s) {
         switch (s) {
-            case State::IDLE: return "IDLE";
-            case State::PLANNING: return "PLANNING";
-            case State::EXECUTING: return "EXECUTING";
+            case State::IDLE:
+                return "IDLE";
+            case State::PLANNING:
+                return "PLANNING";
+            case State::EXECUTING:
+                return "EXECUTING";
         }
         return "UNKNOWN";
     }
@@ -152,6 +178,7 @@ private:
     rclcpp_action::Server<Execute>::SharedPtr execute_server_;
     rclcpp_action::Server<PlanAndExecute>::SharedPtr plan_and_execute_server_;
 
+    rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
     moveit::planning_interface::MoveGroupInterface::Plan last_plan_;
 
@@ -215,12 +242,12 @@ private:
 
         moveit::core::MoveItErrorCode error;
         auto candidate = run_planner(target, error,
-                [&] { return goal_handle->is_canceling(); },
-                [&](int attempt, int max) {
-                    feedback->attempt = static_cast<uint8_t>(attempt);
-                    feedback->max_attempts = static_cast<uint8_t>(max);
-                    goal_handle->publish_feedback(feedback);
-                });
+                                     [&] { return goal_handle->is_canceling(); },
+                                     [&](int attempt, int max) {
+                                         feedback->attempt = static_cast<uint8_t>(attempt);
+                                         feedback->max_attempts = static_cast<uint8_t>(max);
+                                         goal_handle->publish_feedback(feedback);
+                                     });
 
         if (goal_handle->is_canceling()) {
             std::lock_guard lock(move_group_mutex_);
@@ -310,7 +337,7 @@ private:
 
         moveit::core::MoveItErrorCode error;
         auto candidate = run_planner(target, error,
-                [&] { return goal_handle->is_canceling(); });
+                                     [&] { return goal_handle->is_canceling(); });
 
         if (goal_handle->is_canceling()) {
             goal_handle->canceled(result);

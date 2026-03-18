@@ -12,49 +12,82 @@
 
 using namespace threepp;
 
-class KineUI: public ImguiContext {
+struct PlannerParams
+{
+    float planning_time;
+    float goal_position_tolerance;
+    float goal_orientation_tolerance;
+    float max_velocity_scaling;
+    float max_acceleration_scaling;
+};
+
+class KineUI : public ImguiContext
+{
 public:
     KineUI(
-            const Canvas& canvas,
-            std::shared_ptr<Robot> robot,
-            std::mutex& robotMutex,
-            const std::vector<std::string>& jointNames,
-            bool goalPlanning)
+        const Canvas& canvas,
+        std::shared_ptr<Robot> robot,
+        std::mutex& robotMutex,
+        const std::vector<std::string>& jointNames,
+        bool goalPlanning)
         : ImguiContext(canvas), robot_(std::move(robot)), robotMutex_(robotMutex), jointNames_(jointNames),
-          goalPlanning_(goalPlanning) {
+          goalPlanning_(goalPlanning)
+    {
     }
 
     [[nodiscard]] bool loopGhost() const { return loopGhost_; }
     [[nodiscard]] bool showTrail() const { return showTrail_; }
 
     // Returns modified joint values if any slider changed since last call.
-    std::optional<std::vector<float>> consumeJointChange() {
+    std::optional<std::vector<float>> consumeJointChange()
+    {
         return std::exchange(pendingJointChange_, std::nullopt);
     }
 
     // True if "Plan" was clicked since last call.
-    bool consumePlanRequest() {
+    bool consumePlanRequest()
+    {
         return std::exchange(pendingPlanRequest_, false);
     }
 
     // True if "Execute" was clicked since last call.
-    bool consumeExecuteRequest() {
+    bool consumeExecuteRequest()
+    {
         return std::exchange(pendingExecuteRequest_, false);
     }
 
     // True if "Plan & Execute" was clicked since last call.
-    bool consumePlanAndExecuteRequest() {
+    bool consumePlanAndExecuteRequest()
+    {
         return std::exchange(pendingPlanAndExecuteRequest_, false);
     }
 
     // True if "Reset gizmo" was clicked since last call.
-    bool consumeResetGizmoRequest() {
+    bool consumeResetGizmoRequest()
+    {
         return std::exchange(pendingResetGizmoRequest_, false);
     }
 
     // True if "Cancel" was clicked since last call.
-    bool consumeCancelRequest() {
+    bool consumeCancelRequest()
+    {
         return std::exchange(pendingCancelRequest_, false);
+    }
+
+    // Returns pending parameter change if any slider changed since last call.
+    std::optional<PlannerParams> consumeParamChange()
+    {
+        return std::exchange(pendingParamChange_, std::nullopt);
+    }
+
+    // Called once after startup to sync slider positions with server values.
+    void setInitialParams(const PlannerParams& params)
+    {
+        ui_planning_time_ = params.planning_time;
+        ui_goal_position_tolerance_ = params.goal_position_tolerance;
+        ui_goal_orientation_tolerance_ = params.goal_orientation_tolerance;
+        ui_max_velocity_scaling_ = params.max_velocity_scaling;
+        ui_max_acceleration_scaling_ = params.max_acceleration_scaling;
     }
 
     void setBusy(bool busy) { busy_ = busy; }
@@ -62,45 +95,55 @@ public:
     void setActionStatus(const std::string& status) { action_status_ = status; }
 
 protected:
-    void onRender() override {
+    void onRender() override
+    {
         ImGui::SetNextWindowPos({});
         ImGui::SetNextWindowSize({});
 
         ImGui::Begin("Controls");
 
-        if (ImGui::CollapsingHeader("Joints")) {
+        if (ImGui::CollapsingHeader("Joints"))
+        {
             std::unique_lock lock(robotMutex_);
             const auto infos = robot_->getArticulatedJointInfo();
             auto jointValues = robot_->jointValues();
             bool jointsChanged = false;
-            for (unsigned i = 0; i < robot_->numDOF(); ++i) {
+            for (unsigned i = 0; i < robot_->numDOF(); ++i)
+            {
                 const auto [min, max] = robot_->getJointRange(i, true);
-                if (infos[i].type == Robot::JointType::Revolute) {
+                if (infos[i].type == Robot::JointType::Revolute)
+                {
                     jointsChanged |= ImGui::SliderAngle(jointNames_[i].c_str(), &jointValues[i], min, max);
-                } else {
+                }
+                else
+                {
                     jointsChanged |= ImGui::SliderFloat(jointNames_[i].c_str(), &jointValues[i], min, max);
                 }
             }
             lock.unlock();
 
-            if (jointsChanged) {
+            if (jointsChanged)
+            {
                 pendingJointChange_ = std::move(jointValues);
             }
         }
 
-        if (goalPlanning_) {
+        if (goalPlanning_)
+        {
             ImGui::Checkbox("Loop ghost animation", &loopGhost_);
 
             ImGui::BeginDisabled(busy_);
 
-            if (ImGui::Button("Plan")) {
+            if (ImGui::Button("Plan"))
+            {
                 pendingPlanRequest_ = true;
             }
 
             ImGui::SameLine();
 
             ImGui::BeginDisabled(!hasPlan_);
-            if (ImGui::Button("Execute")) {
+            if (ImGui::Button("Execute"))
+            {
                 pendingExecuteRequest_ = true;
                 hasPlan_ = false;
             }
@@ -108,24 +151,50 @@ protected:
 
             ImGui::SameLine();
 
-            if (ImGui::Button("Plan & Execute")) {
+            if (ImGui::Button("Plan & Execute"))
+            {
                 pendingPlanAndExecuteRequest_ = true;
             }
 
             ImGui::EndDisabled();
 
-            if (busy_) {
+            if (busy_)
+            {
                 ImGui::SameLine();
-                if (ImGui::Button("Cancel")) {
+                if (ImGui::Button("Cancel"))
+                {
                     pendingCancelRequest_ = true;
                 }
             }
 
-            if (!action_status_.empty()) {
+            if (!action_status_.empty())
+            {
                 ImGui::TextUnformatted(action_status_.c_str());
             }
 
-            if (ImGui::Button("Reset gizmo")) {
+            if (ImGui::CollapsingHeader("Planner Settings"))
+            {
+                bool changed = false;
+                changed |= ImGui::SliderFloat("Planning time (s)", &ui_planning_time_, 0.1f, 30.0f);
+                changed |= ImGui::SliderFloat("Pos tolerance (m)", &ui_goal_position_tolerance_, 0.001f, 0.1f, "%.4f");
+                changed |= ImGui::SliderFloat("Orient tolerance (rad)", &ui_goal_orientation_tolerance_, 0.01f, 1.0f,
+                                              "%.3f");
+                changed |= ImGui::SliderFloat("Vel scaling", &ui_max_velocity_scaling_, 0.01f, 1.0f);
+                changed |= ImGui::SliderFloat("Accel scaling", &ui_max_acceleration_scaling_, 0.01f, 1.0f);
+                if (changed)
+                {
+                    pendingParamChange_ = PlannerParams{
+                        ui_planning_time_,
+                        ui_goal_position_tolerance_,
+                        ui_goal_orientation_tolerance_,
+                        ui_max_velocity_scaling_,
+                        ui_max_acceleration_scaling_
+                    };
+                }
+            }
+
+            if (ImGui::Button("Reset gizmo"))
+            {
                 pendingResetGizmoRequest_ = true;
             }
         }
@@ -170,6 +239,13 @@ private:
 
     std::string action_status_;
 
+    float ui_planning_time_ = 5.0f;
+    float ui_goal_position_tolerance_ = 0.01f;
+    float ui_goal_orientation_tolerance_ = 0.01f;
+    float ui_max_velocity_scaling_ = 1.0f;
+    float ui_max_acceleration_scaling_ = 1.0f;
+
+    std::optional<PlannerParams> pendingParamChange_;
     std::optional<std::vector<float>> pendingJointChange_;
     bool pendingPlanRequest_ = false;
     bool pendingExecuteRequest_ = false;

@@ -29,15 +29,11 @@ public:
         execution_rate_hz_ = this->declare_parameter<double>("execution_rate_hz", 125.0);
         interpolation_method_ = this->declare_parameter<std::string>("interpolation", "cubic");
 
-        if (jointNames_.empty()) {
-            RCLCPP_WARN(get_logger(), "No joint_names provided — the controller won't publish anything useful.");
-        }
+        if (jointNames_.empty()) { RCLCPP_WARN(get_logger(), "No joint_names provided — the controller won't publish anything useful."); }
 
         jointPositions_.resize(jointNames_.size(), 0.0);
         jointVelocities_.resize(jointNames_.size(), 0.0);
-        for (size_t i = 0; i < jointNames_.size(); ++i) {
-            jointIndexByName_[jointNames_[i]] = i;
-        }
+        for (size_t i = 0; i < jointNames_.size(); ++i) { jointIndexByName_[jointNames_[i]] = i; }
 
         // --- Publisher ---
         joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
@@ -126,9 +122,7 @@ private:
     // ================================================================
 
     /// Linear interpolation between two waypoints.
-    static double lerp(double q0, double q1, double alpha) {
-        return (1.0 - alpha) * q0 + alpha * q1;
-    }
+    static double lerp(double q0, double q1, double alpha) { return (1.0 - alpha) * q0 + alpha * q1; }
 
     /// Cubic Hermite interpolation using positions and velocities at endpoints.
     static double cubic_hermite(double q0, double v0, double q1, double v1,
@@ -204,16 +198,12 @@ private:
     void handle_accepted(const std::shared_ptr<GoalHandle> goal_handle) {
         // Preempt any running goal
         cancel_execution();
-        if (execution_thread_.joinable()) {
-            execution_thread_.join();
-        }
+        if (execution_thread_.joinable()) { execution_thread_.join(); }
         cancel_requested_.store(false);
         execution_thread_ = std::jthread{&FakeController::execute_goal, this, goal_handle};
     }
 
-    void cancel_execution() {
-        cancel_requested_.store(true);
-    }
+    void cancel_execution() { cancel_requested_.store(true); }
 
     // ================================================================
     //  Goal execution (runs in dedicated thread)
@@ -227,9 +217,7 @@ private:
 
         // Build index mapping: incoming order → our internal order
         std::vector<size_t> idx_map(n_joints);
-        for (size_t i = 0; i < n_joints; ++i) {
-            idx_map[i] = jointIndexByName_.at(traj.joint_names[i]);
-        }
+        for (size_t i = 0; i < n_joints; ++i) { idx_map[i] = jointIndexByName_.at(traj.joint_names[i]); }
 
         // Helper: apply positions + velocities to internal state
         auto apply_state = [&](const std::vector<double>& pos,
@@ -243,9 +231,7 @@ private:
 
         // Check whether velocities are available in all waypoints
         const bool have_velocities = std::ranges::all_of(
-                traj.points, [&](const auto& pt) {
-                    return pt.velocities.size() == n_joints;
-                });
+                traj.points, [&](const auto& pt) { return pt.velocities.size() == n_joints; });
 
         const bool use_cubic = (interpolation_method_ == "cubic") && have_velocities;
 
@@ -285,9 +271,7 @@ private:
 
             // Advance segment index
             while (seg + 1 < n_points &&
-                   rclcpp::Duration(traj.points[seg + 1].time_from_start).seconds() <= t_sec) {
-                ++seg;
-            }
+                   rclcpp::Duration(traj.points[seg + 1].time_from_start).seconds() <= t_sec) { ++seg; }
 
             // Check for completion
             const double t_final = rclcpp::Duration(traj.points.back().time_from_start).seconds();
@@ -331,9 +315,7 @@ private:
                         const double dh11 = (3.0 * s * s - 2.0 * s) * ds_dt;
                         interp_vel[j] = dh00 * p0.positions[j] + dh10 * (p0.velocities[j] * dt) +
                                         dh01 * p1.positions[j] + dh11 * (p1.velocities[j] * dt);
-                    } else {
-                        interp_vel[j] = 0.0;
-                    }
+                    } else { interp_vel[j] = 0.0; }
                 } else {
                     interp_pos[j] = lerp(p0.positions[j], p1.positions[j], alpha);
                     interp_vel[j] = (dt > 0.0) ? (p1.positions[j] - p0.positions[j]) / dt : 0.0;
@@ -344,8 +326,7 @@ private:
 
             // --- Publish feedback ---
             feedback->desired.positions = p1.positions;
-            if (have_velocities)
-                feedback->desired.velocities = p1.velocities;
+            if (have_velocities) feedback->desired.velocities = p1.velocities;
             feedback->desired.time_from_start = p1.time_from_start;
 
             feedback->actual.positions = interp_pos;

@@ -90,16 +90,12 @@ KineEnvironmentNode::KineEnvironmentNode(): Node("kine_environment_node") {
         auto plannerGhostMaterial = createGhostMaterial(Color::orange);
         planner_ghost_ = loadRobot(urdf_);
         planner_ghost_->showColliders(false);
-        planner_ghost_->traverseType<Mesh>([&](Mesh& m) {
-            m.setMaterial(plannerGhostMaterial);
-        });
+        planner_ghost_->traverseType<Mesh>([&](Mesh& m) { m.setMaterial(plannerGhostMaterial); });
 
         auto ikGhostMaterial = createGhostMaterial(Color::blue);
         ik_ghost_ = loadRobot(urdf_);
         ik_ghost_->showColliders(false);
-        ik_ghost_->traverseType<Mesh>([&](Mesh& m) {
-            m.setMaterial(ikGhostMaterial);
-        });
+        ik_ghost_->traverseType<Mesh>([&](Mesh& m) { m.setMaterial(ikGhostMaterial); });
 
         animator_ = std::make_unique<TrajectoryAnimator>(planner_ghost_);
 
@@ -113,11 +109,12 @@ KineEnvironmentNode::KineEnvironmentNode(): Node("kine_environment_node") {
         plan_client_ = rclcpp_action::create_client<Plan>(this, "plan");
         execute_client_ = rclcpp_action::create_client<Execute>(this, "execute");
         plan_and_execute_client_ = rclcpp_action::create_client<PlanAndExecute>(this, "plan_and_execute");
+        planner_params_client_ = std::make_shared<rclcpp::AsyncParametersClient>(this, "target_planner");
     }
 
     joint_pub_ =
             this->create_publisher<
-                    sensor_msgs::msg::JointState>(goal_planning_ ? "joint_commands" : "joint_states", 10);
+                sensor_msgs::msg::JointState>(goal_planning_ ? "joint_commands" : "joint_states", 10);
 
     joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
             "joint_states", 10,
@@ -167,15 +164,14 @@ void KineEnvironmentNode::sendPlanGoal(const geometry_msgs::msg::PoseStamped& ta
             cancel_fn_ = nullptr;
         }
     };
-    options.feedback_callback = [this](auto, const std::shared_ptr<const Plan::Feedback> fb) {
-        setStatus("Planning... attempt " + std::to_string(fb->attempt) + "/" + std::to_string(fb->max_attempts));
-    };
+    options.feedback_callback = [this](auto, const std::shared_ptr<const Plan::Feedback> fb) { setStatus("Planning... attempt " + std::to_string(fb->attempt) + "/" + std::to_string(fb->max_attempts)); };
     options.result_callback = [this](const rclcpp_action::ClientGoalHandle<Plan>::WrappedResult& result) {
-        { std::lock_guard lock(cancel_mutex_); cancel_fn_ = nullptr; }
+        {
+            std::lock_guard lock(cancel_mutex_);
+            cancel_fn_ = nullptr;
+        }
         cancel_requested_ = false;
-        if (result.code == rclcpp_action::ResultCode::CANCELED) {
-            setStatus("Plan canceled");
-        } else if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+        if (result.code == rclcpp_action::ResultCode::CANCELED) { setStatus("Plan canceled"); } else if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
             setStatus("Plan succeeded (" + std::to_string(result.result->trajectory_points) + " points)");
             has_plan_ = true;
         } else {
@@ -209,20 +205,15 @@ void KineEnvironmentNode::sendExecuteGoal() {
             cancel_fn_ = nullptr;
         }
     };
-    options.feedback_callback = [this](auto, const auto&) {
-        setStatus("Executing...");
-    };
+    options.feedback_callback = [this](auto, const auto&) { setStatus("Executing..."); };
     options.result_callback = [this](const rclcpp_action::ClientGoalHandle<Execute>::WrappedResult& result) {
-        { std::lock_guard lock(cancel_mutex_); cancel_fn_ = nullptr; }
+        {
+            std::lock_guard lock(cancel_mutex_);
+            cancel_fn_ = nullptr;
+        }
         cancel_requested_ = false;
         animator_->stop();
-        if (result.code == rclcpp_action::ResultCode::CANCELED) {
-            setStatus("Execution canceled");
-        } else if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
-            setStatus("Execution succeeded");
-        } else {
-            setStatus("Execution failed: " + result.result->message);
-        }
+        if (result.code == rclcpp_action::ResultCode::CANCELED) { setStatus("Execution canceled"); } else if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) { setStatus("Execution succeeded"); } else { setStatus("Execution failed: " + result.result->message); }
         has_plan_ = false;
         action_busy_ = false;
     };
@@ -254,20 +245,15 @@ void KineEnvironmentNode::sendPlanAndExecuteGoal(const geometry_msgs::msg::PoseS
             cancel_fn_ = nullptr;
         }
     };
-    options.feedback_callback = [this](auto, const std::shared_ptr<const PlanAndExecute::Feedback> fb) {
-        setStatus(fb->phase + "...");
-    };
+    options.feedback_callback = [this](auto, const std::shared_ptr<const PlanAndExecute::Feedback> fb) { setStatus(fb->phase + "..."); };
     options.result_callback = [this](const rclcpp_action::ClientGoalHandle<PlanAndExecute>::WrappedResult& result) {
-        { std::lock_guard lock(cancel_mutex_); cancel_fn_ = nullptr; }
+        {
+            std::lock_guard lock(cancel_mutex_);
+            cancel_fn_ = nullptr;
+        }
         cancel_requested_ = false;
         animator_->stop();
-        if (result.code == rclcpp_action::ResultCode::CANCELED) {
-            setStatus("Plan & execute canceled");
-        } else if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
-            setStatus("Plan & execute succeeded (" + std::to_string(result.result->trajectory_points) + " points)");
-        } else {
-            setStatus("Plan & execute failed: " + result.result->message);
-        }
+        if (result.code == rclcpp_action::ResultCode::CANCELED) { setStatus("Plan & execute canceled"); } else if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) { setStatus("Plan & execute succeeded (" + std::to_string(result.result->trajectory_points) + " points)"); } else { setStatus("Plan & execute failed: " + result.result->message); }
         has_plan_ = false;
         action_busy_ = false;
     };
@@ -318,9 +304,7 @@ void KineEnvironmentNode::run() {
         ik_ghost_->visible = dragging;
     });
 
-    LambdaEventListener objectChanged([&](const Event&) {
-        requestIK(toRosPose(targetObject->position, targetObject->quaternion));
-    });
+    LambdaEventListener objectChanged([&](const Event&) { requestIK(toRosPose(targetObject->position, targetObject->quaternion)); });
 
     if (goal_planning_) {
         scene.add(planner_ghost_);
@@ -330,9 +314,7 @@ void KineEnvironmentNode::run() {
 
         targetObject = planner_ghost_->getObjectByName(jointNames_.back())->clone();
         auto targetMaterial = createGhostMaterial(Color::blue);
-        targetObject->traverseType<Mesh>([mat = std::move(targetMaterial)](Mesh& m) {
-            m.setMaterial(mat);
-        });
+        targetObject->traverseType<Mesh>([mat = std::move(targetMaterial)](Mesh& m) { m.setMaterial(mat); });
         scene.add(targetObject);
 
         auto transform = robot_->getEndEffectorTransform();
@@ -358,13 +340,29 @@ void KineEnvironmentNode::run() {
         if (ok) {
             servers_ready_ = true;
             setStatus("Ready");
-        } else {
-            setStatus("Action servers not available");
-        }
+        } else { setStatus("Action servers not available"); }
     }
 
     robot_->showColliders(false);
     KineUI ui(canvas, robot_, robot_mutex_, jointNames_, goal_planning_);
+
+    if (goal_planning_ && servers_ready_) {
+        planner_params_client_->get_parameters(
+                {"planning_time", "goal_position_tolerance", "goal_orientation_tolerance",
+                 "max_velocity_scaling_factor", "max_acceleration_scaling_factor"},
+                [&ui](std::shared_future<std::vector<rclcpp::Parameter>> future) {
+                    auto fetched = future.get();
+                    if (fetched.size() == 5) {
+                        PlannerParams params;
+                        params.planning_time = static_cast<float>(fetched[0].as_double());
+                        params.goal_position_tolerance = static_cast<float>(fetched[1].as_double());
+                        params.goal_orientation_tolerance = static_cast<float>(fetched[2].as_double());
+                        params.max_velocity_scaling = static_cast<float>(fetched[3].as_double());
+                        params.max_acceleration_scaling = static_cast<float>(fetched[4].as_double());
+                        ui.setInitialParams(params);
+                    }
+                });
+    }
 
     IOCapture capture{};
     capture.preventMouseEvent = [] { return ImGui::GetIO().WantCaptureMouse; };
@@ -433,11 +431,29 @@ void KineEnvironmentNode::run() {
                 }
             }
 
+            if (auto paramChange = ui.consumeParamChange()) {
+                static auto lastParamSend = std::chrono::steady_clock::time_point{};
+                auto now = std::chrono::steady_clock::now();
+                if (now - lastParamSend >= std::chrono::milliseconds(200)) {
+                    lastParamSend = now;
+                    planner_params_client_->set_parameters({
+                            rclcpp::Parameter("planning_time", static_cast<double>(paramChange->planning_time)),
+                            rclcpp::Parameter("goal_position_tolerance", static_cast<double>(paramChange->goal_position_tolerance)),
+                            rclcpp::Parameter("goal_orientation_tolerance", static_cast<double>(paramChange->goal_orientation_tolerance)),
+                            rclcpp::Parameter("max_velocity_scaling_factor", static_cast<double>(paramChange->max_velocity_scaling)),
+                            rclcpp::Parameter("max_acceleration_scaling_factor", static_cast<double>(paramChange->max_acceleration_scaling)),
+                    });
+                }
+            }
+
             if (ui.consumeResetGizmoRequest()) {
                 const auto transform = robot_->getEndEffectorTransform();
                 targetObject->position.setFromMatrixPosition(transform);
                 targetObject->quaternion.setFromRotationMatrix(transform);
-                { std::lock_guard lock(ik_ghost_mutex_); ik_ghost_->setJointValues(robot_->jointValues()); }
+                {
+                    std::lock_guard lock(ik_ghost_mutex_);
+                    ik_ghost_->setJointValues(robot_->jointValues());
+                }
             }
         }
 
@@ -445,21 +461,15 @@ void KineEnvironmentNode::run() {
             Vector3 eePos;
             eePos.setFromMatrixPosition(robot_->getEndEffectorTransform());
             trail.update(clock.elapsedTime, eePos);
-        } else if (trail.object().visible) {
-            trail.clear();
-        }
+        } else if (trail.object().visible) { trail.clear(); }
 
         renderer.render(scene, camera);
         ui.render();
 
-        if (!rclcpp::ok()) {
-            canvas.close();
-        }
+        if (!rclcpp::ok()) { canvas.close(); }
     });
 
-    if (rclcpp::ok()) {
-        rclcpp::shutdown();
-    }
+    if (rclcpp::ok()) { rclcpp::shutdown(); }
 }
 
 void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose) {
@@ -478,9 +488,7 @@ void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose)
         auto& robot_state = request->ik_request.robot_state.joint_state;
         robot_state.name = jointNames_;
         robot_state.position.resize(ik_ghost_->numDOF());
-        for (size_t i = 0; i < ik_ghost_->numDOF(); ++i) {
-            robot_state.position[i] = static_cast<double>(ik_ghost_->getJointValue(i));
-        }
+        for (size_t i = 0; i < ik_ghost_->numDOF(); ++i) { robot_state.position[i] = static_cast<double>(ik_ghost_->getJointValue(i)); }
     }
 
     ik_client_->async_send_request(
@@ -490,9 +498,7 @@ void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose)
                 if (response->error_code.val == moveit_msgs::msg::MoveItErrorCodes::SUCCESS) {
                     const auto& positions = response->solution.joint_state.position;
                     std::lock_guard lock(ik_ghost_mutex_);
-                    for (size_t i = 0; i < positions.size() && i < ik_ghost_->numDOF(); ++i) {
-                        ik_ghost_->setJointValue(i, static_cast<float>(positions[i]));
-                    }
+                    for (size_t i = 0; i < positions.size() && i < ik_ghost_->numDOF(); ++i) { ik_ghost_->setJointValue(i, static_cast<float>(positions[i])); }
                 }
                 ik_pending_ = false;
             });

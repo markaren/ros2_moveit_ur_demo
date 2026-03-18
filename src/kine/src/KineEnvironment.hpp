@@ -26,7 +26,8 @@
 
 using namespace threepp;
 
-class KineEnvironmentNode: public rclcpp::Node {
+class KineEnvironmentNode : public rclcpp::Node
+{
 public:
     KineEnvironmentNode();
 
@@ -53,6 +54,7 @@ private:
     rclcpp_action::Client<PlanAndExecute>::SharedPtr plan_and_execute_client_;
 
     rclcpp::Client<moveit_msgs::srv::GetPositionIK>::SharedPtr ik_client_;
+    std::shared_ptr<rclcpp::AsyncParametersClient> planner_params_client_;
 
     std::atomic<bool> servers_ready_{false};
     std::atomic<bool> action_busy_{false};
