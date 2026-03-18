@@ -46,6 +46,7 @@ private:
     std::jthread thread_;
 
     void run();
+
     void requestIK(const geometry_msgs::msg::Pose& target_pose);
 };
 

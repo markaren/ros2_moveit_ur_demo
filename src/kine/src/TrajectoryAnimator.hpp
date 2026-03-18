@@ -1,4 +1,3 @@
-
 #ifndef TRAJECTORYANIMATOR_HPP
 #define TRAJECTORYANIMATOR_HPP
 
@@ -13,13 +12,18 @@ public:
     explicit TrajectoryAnimator(std::shared_ptr<threepp::Robot> ghost);
 
     void loadTrajectory(const moveit_msgs::msg::DisplayTrajectory::SharedPtr& msg);
+
     void update(float dt, bool loop);
+
     void stop();
+
     bool isVisible() const;
+
     bool isPlaying() const;
 
 private:
     void applyJoints(const std::vector<float>& joints);
+
     void interpolateAndApply();
 
     std::shared_ptr<threepp::Robot> ghost_;

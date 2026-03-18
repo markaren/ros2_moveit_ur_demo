@@ -1,4 +1,3 @@
-
 #ifndef TRANSFORMKEYLISTENER_HPP
 #define TRANSFORMKEYLISTENER_HPP
 
@@ -8,7 +7,6 @@
 #include <rclcpp/logger.hpp>
 
 class TransformKeyListener: public threepp::KeyListener {
-
 public:
     explicit TransformKeyListener(threepp::TransformControls* transform_controls)
         : transformControls(transform_controls) {
@@ -18,7 +16,8 @@ public:
         switch (evt.key) {
             case Key::Q: {
                 transformControls->setSpace(transformControls->getSpace() == "local" ? "world" : "local");
-                RCLCPP_INFO(rclcpp::get_logger("TransformKeyListener"), "TransformControls space: %s", transformControls->getSpace().c_str());
+                RCLCPP_INFO(rclcpp::get_logger("TransformKeyListener"), "TransformControls space: %s",
+                            transformControls->getSpace().c_str());
                 break;
             }
             case Key::W: {

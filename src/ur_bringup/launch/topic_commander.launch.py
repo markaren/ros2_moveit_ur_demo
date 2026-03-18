@@ -28,14 +28,6 @@ def generate_launch_description():
         ),
 
         Node(
-            package='kine',
-            executable='kine_environment',
-            name='kine_environment',
-            output='screen',
-            parameters=[{'use_sim_time': False, 'goal_planning': False}],
-        ),
-
-        Node(
             package='joint_commander',
             executable='topic_commander',
             name='topic_commander',

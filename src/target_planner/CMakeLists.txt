@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
 project(target_planner)
 
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 20)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -18,7 +22,12 @@ find_package(geometry_msgs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 
 add_executable(target_planner target_planner.cpp)
-ament_target_dependencies(target_planner rclcpp std_msgs geometry_msgs moveit_ros_planning_interface)
+ament_target_dependencies(target_planner
+        rclcpp
+        std_msgs
+        geometry_msgs
+        moveit_ros_planning_interface
+)
 
 install(TARGETS
         target_planner

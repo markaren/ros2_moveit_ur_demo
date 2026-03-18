@@ -116,7 +116,8 @@ KineEnvironmentNode::KineEnvironmentNode(): Node("kine_environment_node") {
     }
 
     joint_pub_ =
-            this->create_publisher<sensor_msgs::msg::JointState>(goal_planning_ ? "joint_commands" : "joint_states", 10);
+            this->create_publisher<
+                    sensor_msgs::msg::JointState>(goal_planning_ ? "joint_commands" : "joint_states", 10);
 
     // subscription: receive 3-element Float32MultiArray to set joint values
     joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
@@ -144,7 +145,7 @@ void KineEnvironmentNode::run() {
     Canvas canvas("Kine Environment");
     GLRenderer renderer(canvas.size());
 
-    Object3D::defaultUp = {0, 0, 1}; // ROS convention is Z-up
+    Object3D::defaultUp = {0, 0, 1};// ROS convention is Z-up
 
     Scene scene;
     scene.background = Color::aliceblue;

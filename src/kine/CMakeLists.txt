@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
 project(kine)
 
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
 if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 20)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,24 +23,32 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 
-find_package(assimp REQUIRED)
-
 include(FetchContent)
 set(THREEPP_BUILD_TESTS OFF)
 set(THREEPP_BUILD_EXAMPLES OFF)
 FetchContent_Declare(
         threepp
         GIT_REPOSITORY https://github.com/markaren/threepp.git
-        GIT_TAG ffb7b22
+        GIT_TAG eebc10c
 )
 FetchContent_MakeAvailable(threepp)
 
 #using imgui from threepp examples
-add_subdirectory(${threepp_SOURCE_DIR}/examples/external ${CMAKE_CURRENT_BINARY_DIR}/threepp_examples_external)
+add_subdirectory("${threepp_SOURCE_DIR}/examples/external" "${CMAKE_CURRENT_BINARY_DIR}/threepp_examples_external")
 
 
-add_executable(kine_environment kine_environment.cpp src/KineEnvironment.cpp src/TrajectoryAnimator.cpp)
-ament_target_dependencies(kine_environment rclcpp ament_index_cpp std_msgs sensor_msgs geometry_msgs moveit_ros_planning_interface)
+add_executable(kine_environment
+        kine_environment.cpp
+        src/KineEnvironment.cpp
+        src/TrajectoryAnimator.cpp
+)
+ament_target_dependencies(kine_environment
+        rclcpp
+        ament_index_cpp
+        std_msgs sensor_msgs
+        geometry_msgs
+        moveit_ros_planning_interface
+)
 target_link_libraries(kine_environment threepp::threepp imgui)
 
 install(TARGETS

@@ -29,7 +29,7 @@ public:
     Object3D& object() { return *line_; }
 
     void update(float time, const Vector3& pos) {
-        deque_.push_back({time, pos});
+        deque_.emplace_back(time, pos);
 
         while (time - deque_.front().time > kDuration)
             deque_.pop_front();
@@ -59,6 +59,7 @@ private:
         float time;
         Vector3 pos;
     };
+
     std::deque<TrailPoint> deque_;
 
     std::shared_ptr<BufferGeometry> geom_;

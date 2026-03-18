@@ -1,4 +1,3 @@
-
 #ifndef KINEUI_HPP
 #define KINEUI_HPP
 
@@ -21,7 +20,9 @@ public:
             std::mutex& robotMutex,
             const std::vector<std::string>& jointNames,
             bool goalPlanning)
-        : ImguiContext(canvas), robot_(std::move(robot)), robotMutex_(robotMutex), jointNames_(jointNames), goalPlanning_(goalPlanning) {}
+        : ImguiContext(canvas), robot_(std::move(robot)), robotMutex_(robotMutex), jointNames_(jointNames),
+          goalPlanning_(goalPlanning) {
+    }
 
     [[nodiscard]] bool loopGhost() const { return loopGhost_; }
     [[nodiscard]] bool showTrail() const { return showTrail_; }
@@ -96,7 +97,6 @@ protected:
 
 
         ImGui::Checkbox("Show EE Trail", &showTrail_);
-
         {
             std::unique_lock lock(robotMutex_);
             const auto transform = robot_->getEndEffectorTransform();
