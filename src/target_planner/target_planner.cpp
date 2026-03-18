@@ -7,6 +7,27 @@
 #include <mutex>
 #include <thread>
 
+/**
+ * @brief ROS 2 node that plans and executes motion trajectories for a UR manipulator using MoveIt.
+ *
+ * Planning and execution are intentionally decoupled into two separate steps:
+ * -# Publish a target pose to `target_pose` to trigger motion planning.
+ * -# Publish to `execute_plan` to execute the last successful plan.
+ *
+ * Both operations run on background threads and are guarded against concurrent calls.
+ * Call init() after construction to create the MoveGroupInterface.
+ *
+ * **Subscribed topics:**
+ * - `target_pose` (geometry_msgs/PoseStamped): target end-effector pose to plan toward.
+ * - `execute_plan` (std_msgs/Empty): triggers execution of the last stored plan.
+ *
+ * **Parameters:**
+ * - `planning_time` (double, default 5.0): max planning time in seconds.
+ * - `goal_position_tolerance` (double, default 0.01): position tolerance in metres.
+ * - `goal_orientation_tolerance` (double, default 0.1): orientation tolerance in radians.
+ * - `max_velocity_scaling_factor` (double, default 1.0): velocity scaling [0, 1].
+ * - `max_acceleration_scaling_factor` (double, default 1.0): acceleration scaling [0, 1].
+ */
 class TargetPlanner: public rclcpp::Node {
 public:
     TargetPlanner(): Node("target_planner") {
