@@ -14,7 +14,9 @@
  * -# Publish a target pose to `target_pose` to trigger motion planning.
  * -# Publish to `execute_plan` to execute the last successful plan.
  *
- * Both operations run on background threads and are guarded against concurrent calls.
+ * Both operations run on background threads. A unified state machine prevents
+ * any overlap between planning and execution, and a dedicated mutex serialises
+ * all access to the (non-thread-safe) MoveGroupInterface.
  * Call init() after construction to create the MoveGroupInterface.
  *
  * **Subscribed topics:**
@@ -40,8 +42,9 @@ public:
         pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
                 "target_pose", 10,
                 [this](geometry_msgs::msg::PoseStamped::SharedPtr msg) {
-                    if (planning_.exchange(true)) {
-                        RCLCPP_WARN(get_logger(), "Planning already in progress, ignoring new target");
+                    State expected = State::IDLE;
+                    if (!state_.compare_exchange_strong(expected, State::PLANNING)) {
+                        RCLCPP_WARN(get_logger(), "Node is busy (%s), ignoring new target", state_name(expected));
                         return;
                     }
                     if (plan_thread_.joinable()) plan_thread_.join();
@@ -51,8 +54,9 @@ public:
         execute_sub_ = create_subscription<std_msgs::msg::Empty>(
                 "execute_plan", 10,
                 [this](std_msgs::msg::Empty::SharedPtr) {
-                    if (executing_.exchange(true)) {
-                        RCLCPP_WARN(get_logger(), "Execution already in progress, ignoring");
+                    State expected = State::IDLE;
+                    if (!state_.compare_exchange_strong(expected, State::EXECUTING)) {
+                        RCLCPP_WARN(get_logger(), "Node is busy (%s), ignoring execute request", state_name(expected));
                         return;
                     }
                     if (execute_thread_.joinable()) execute_thread_.join();
@@ -77,10 +81,27 @@ public:
     }
 
 private:
+    enum class State { IDLE, PLANNING, EXECUTING };
+
+    static const char* state_name(State s) {
+        switch (s) {
+            case State::IDLE: return "IDLE";
+            case State::PLANNING: return "PLANNING";
+            case State::EXECUTING: return "EXECUTING";
+        }
+        return "UNKNOWN";
+    }
+
+    /// RAII guard that resets state to IDLE on scope exit, even if an exception is thrown.
+    struct StateGuard {
+        std::atomic<State>& state;
+        ~StateGuard() { state = State::IDLE; }
+    };
+
+    std::atomic<State> state_{State::IDLE};
     std::atomic<bool> has_plan_{false};
-    std::atomic<bool> planning_{false};
-    std::atomic<bool> executing_{false};
     std::mutex plan_mutex_;
+    std::mutex move_group_mutex_;
     std::thread plan_thread_;
     std::thread execute_thread_;
 
@@ -90,62 +111,74 @@ private:
     moveit::planning_interface::MoveGroupInterface::Plan last_plan_;
 
     void plan(const geometry_msgs::msg::PoseStamped& target) {
+        StateGuard guard{state_};
+
         RCLCPP_INFO(get_logger(),
-                    "Planning to: pos=(%.3f, %.3f, %.3f) ori=(%.3f, %.3f, %.3f, %.3f)",
+                    "Planning to: pos=(%.3f, %.3f, %.3f) ori=(%.3f, %.3f, %.3f, %.3f) frame='%s'",
                     target.pose.position.x, target.pose.position.y, target.pose.position.z,
                     target.pose.orientation.x, target.pose.orientation.y,
-                    target.pose.orientation.z, target.pose.orientation.w);
-
-        move_group_->setPoseTarget(target.pose, "tool0");
+                    target.pose.orientation.z, target.pose.orientation.w,
+                    target.header.frame_id.c_str());
 
         moveit::planning_interface::MoveGroupInterface::Plan candidate;
         moveit::core::MoveItErrorCode result;
-        constexpr int max_attempts = 3;
-        for (int attempt = 1; attempt <= max_attempts; ++attempt) {
-            result = move_group_->plan(candidate);
-            if (result == moveit::core::MoveItErrorCode::SUCCESS) break;
-            RCLCPP_WARN(get_logger(), "Planning attempt %d/%d failed (error: %d)", attempt, max_attempts, result.val);
+
+        {
+            std::lock_guard lock(move_group_mutex_);
+            move_group_->setStartStateToCurrentState();
+            move_group_->setPoseReferenceFrame(target.header.frame_id);
+            move_group_->setPoseTarget(target.pose, "tool0");
+
+            constexpr int max_attempts = 3;
+            for (int attempt = 1; attempt <= max_attempts; ++attempt) {
+                result = move_group_->plan(candidate);
+                if (result == moveit::core::MoveItErrorCode::SUCCESS) break;
+                RCLCPP_WARN(get_logger(), "Planning attempt %d/%d failed (error: %d)", attempt, max_attempts, result.val);
+            }
+
+            move_group_->clearPoseTargets();
         }
 
         if (result == moveit::core::MoveItErrorCode::SUCCESS) {
             {
                 std::lock_guard lock(plan_mutex_);
                 last_plan_ = std::move(candidate);
+                has_plan_ = true;
             }
-            has_plan_ = true;
             RCLCPP_INFO(get_logger(), "Plan succeeded (%zu points). Publish to 'execute_plan' to execute.",
                         last_plan_.trajectory.joint_trajectory.points.size());
         } else {
-            has_plan_ = false;
             RCLCPP_WARN(get_logger(), "Planning failed (error code: %d)", result.val);
         }
-
-        planning_ = false;
     }
 
     void execute() {
-        if (!has_plan_) {
-            RCLCPP_WARN(get_logger(), "No valid plan to execute");
-            executing_ = false;
-            return;
-        }
+        StateGuard guard{state_};
 
         moveit::planning_interface::MoveGroupInterface::Plan plan_copy;
         {
             std::lock_guard lock(plan_mutex_);
+            if (!has_plan_) {
+                RCLCPP_WARN(get_logger(), "No valid plan to execute");
+                return;
+            }
             plan_copy = last_plan_;
             has_plan_ = false;
         }
 
         RCLCPP_INFO(get_logger(), "Executing plan...");
-        const auto result = move_group_->execute(plan_copy);
+        moveit::core::MoveItErrorCode result;
+        {
+            std::lock_guard lock(move_group_mutex_);
+            move_group_->setStartStateToCurrentState();
+            result = move_group_->execute(plan_copy);
+        }
 
         if (result == moveit::core::MoveItErrorCode::SUCCESS) {
             RCLCPP_INFO(get_logger(), "Execution succeeded");
         } else {
             RCLCPP_ERROR(get_logger(), "Execution failed (error code: %d)", result.val);
         }
-        executing_ = false;
     }
 };
 
