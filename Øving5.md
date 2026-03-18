@@ -1,4 +1,4 @@
-# AIS2205 - Øving 5 - MoveIt og UR-roboter
+# AIS2105 - Øving 5 - MoveIt og UR-roboter
 
 ## Innledning
 
