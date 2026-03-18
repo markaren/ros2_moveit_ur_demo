@@ -18,10 +18,21 @@ find_package(ament_cmake REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
+# target_planner provides the action interfaces. In a colcon build it is
+# installed and findable; in a monolithic CLion/CMake build the rosidl targets
+# are already in the same CMake tree and we can reference them directly.
+if(TARGET target_planner__rosidl_typesupport_cpp)
+    # Monolithic CLion/CMake build: target_planner is in the same CMake tree
+    set(_tp_ts_target target_planner__rosidl_typesupport_cpp)
+else()
+    # Colcon build: find the installed package and use its exported target
+    find_package(target_planner REQUIRED)
+    set(_tp_ts_target target_planner::target_planner__rosidl_typesupport_cpp)
+endif()
 
 include(FetchContent)
 set(THREEPP_BUILD_TESTS OFF)
@@ -44,12 +55,13 @@ add_executable(kine_environment
 )
 ament_target_dependencies(kine_environment
         rclcpp
+        rclcpp_action
         ament_index_cpp
-        std_msgs sensor_msgs
+        sensor_msgs
         geometry_msgs
         moveit_ros_planning_interface
 )
-target_link_libraries(kine_environment threepp::threepp imgui)
+target_link_libraries(kine_environment threepp::threepp imgui ${_tp_ts_target})
 
 install(TARGETS
         kine_environment

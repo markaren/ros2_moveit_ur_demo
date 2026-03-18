@@ -107,19 +107,18 @@ KineEnvironmentNode::KineEnvironmentNode(): Node("kine_environment_node") {
                 "display_planned_path", 10,
                 [this](moveit_msgs::msg::DisplayTrajectory::SharedPtr msg) {
                     animator_->loadTrajectory(msg);
-
                     RCLCPP_INFO(get_logger(), "Ghost trajectory received");
                 });
 
-        execute_pub_ = this->create_publisher<std_msgs::msg::Empty>(
-                "execute_plan", 10);
+        plan_client_ = rclcpp_action::create_client<Plan>(this, "plan");
+        execute_client_ = rclcpp_action::create_client<Execute>(this, "execute");
+        plan_and_execute_client_ = rclcpp_action::create_client<PlanAndExecute>(this, "plan_and_execute");
     }
 
     joint_pub_ =
             this->create_publisher<
                     sensor_msgs::msg::JointState>(goal_planning_ ? "joint_commands" : "joint_states", 10);
 
-    // subscription: receive 3-element Float32MultiArray to set joint values
     joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
             "joint_states", 10,
             [this](sensor_msgs::msg::JointState::SharedPtr msg) {
@@ -135,10 +134,94 @@ KineEnvironmentNode::KineEnvironmentNode(): Node("kine_environment_node") {
                 }
             });
 
-    target_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
-            "target_pose", 10);
-
     thread_ = std::jthread(&KineEnvironmentNode::run, this);
+}
+
+void KineEnvironmentNode::setStatus(const std::string& status) {
+    std::lock_guard lock(status_mutex_);
+    action_status_ = status;
+    RCLCPP_INFO(get_logger(), "%s", status.c_str());
+}
+
+void KineEnvironmentNode::sendPlanGoal(const geometry_msgs::msg::PoseStamped& target) {
+    if (!servers_ready_) {
+        setStatus("Action servers not available");
+        action_busy_ = false;
+        return;
+    }
+
+    Plan::Goal goal;
+    goal.target_pose = target;
+
+    auto options = rclcpp_action::Client<Plan>::SendGoalOptions{};
+    options.feedback_callback = [this](auto, const std::shared_ptr<const Plan::Feedback> fb) {
+        setStatus("Planning... attempt " + std::to_string(fb->attempt) + "/" + std::to_string(fb->max_attempts));
+    };
+    options.result_callback = [this](const rclcpp_action::ClientGoalHandle<Plan>::WrappedResult& result) {
+        if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+            setStatus("Plan succeeded (" + std::to_string(result.result->trajectory_points) + " points)");
+            has_plan_ = true;
+        } else {
+            setStatus("Plan failed: " + result.result->message);
+            has_plan_ = false;
+        }
+        action_busy_ = false;
+    };
+
+    plan_client_->async_send_goal(goal, options);
+}
+
+void KineEnvironmentNode::sendExecuteGoal() {
+    if (!servers_ready_) {
+        setStatus("Action servers not available");
+        action_busy_ = false;
+        return;
+    }
+
+    auto options = rclcpp_action::Client<Execute>::SendGoalOptions{};
+    options.feedback_callback = [this](auto, const auto&) {
+        setStatus("Executing...");
+    };
+    options.result_callback = [this](const rclcpp_action::ClientGoalHandle<Execute>::WrappedResult& result) {
+        animator_->stop();
+        if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+            setStatus("Execution succeeded");
+        } else {
+            setStatus("Execution failed: " + result.result->message);
+        }
+        has_plan_ = false;
+        action_busy_ = false;
+    };
+
+    execute_client_->async_send_goal(Execute::Goal{}, options);
+}
+
+void KineEnvironmentNode::sendPlanAndExecuteGoal(const geometry_msgs::msg::PoseStamped& target) {
+    if (!servers_ready_) {
+        setStatus("Action servers not available");
+        action_busy_ = false;
+        return;
+    }
+
+    PlanAndExecute::Goal goal;
+    goal.target_pose = target;
+
+    auto options = rclcpp_action::Client<PlanAndExecute>::SendGoalOptions{};
+    options.feedback_callback = [this](auto, const std::shared_ptr<const PlanAndExecute::Feedback> fb) {
+        setStatus(fb->phase + "...");
+    };
+    options.result_callback = [this](const rclcpp_action::ClientGoalHandle<PlanAndExecute>::WrappedResult& result) {
+        animator_->stop();
+        if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+            setStatus("Plan & execute succeeded (" + std::to_string(result.result->trajectory_points) + " points)");
+        } else {
+            setStatus("Plan & execute failed: " + result.result->message);
+        }
+        has_plan_ = false;
+        action_busy_ = false;
+    };
+
+    plan_and_execute_client_->async_send_goal(goal, options);
 }
 
 void KineEnvironmentNode::run() {
@@ -170,7 +253,6 @@ void KineEnvironmentNode::run() {
     grid->rotation.x = math::PI / 2;
     scene.add(grid);
 
-    // Use Z-up camera to match ROS coordinate convention
     camera.position.set(robotSize.x, -robotSize.y * 3.f, robotSize.z * 3.f);
 
     OrbitControls orbitControls(camera, canvas);
@@ -217,6 +299,19 @@ void KineEnvironmentNode::run() {
         canvas.addKeyListener(*keyListener);
     }
 
+    if (goal_planning_) {
+        setStatus("Waiting for action servers...");
+        const bool ok = plan_client_->wait_for_action_server(5s) &&
+                        execute_client_->wait_for_action_server(5s) &&
+                        plan_and_execute_client_->wait_for_action_server(5s);
+        if (ok) {
+            servers_ready_ = true;
+            setStatus("Ready");
+        } else {
+            setStatus("Action servers not available");
+        }
+    }
+
     robot_->showColliders(false);
     KineUI ui(canvas, robot_, robot_mutex_, jointNames_, goal_planning_);
 
@@ -249,25 +344,40 @@ void KineEnvironmentNode::run() {
         }
 
         if (goal_planning_) {
-            if (ui.consumePlanRequest()) {
-                geometry_msgs::msg::PoseStamped pose_msg;
-                pose_msg.header.stamp = this->now();
-                pose_msg.header.frame_id = "base_link";
-                pose_msg.pose = toRosPose(targetObject->position, targetObject->quaternion);
-                target_pose_pub_->publish(pose_msg);
+            // Sync action state to UI
+            ui.setBusy(action_busy_);
+            ui.setHasPlan(has_plan_);
+            {
+                std::lock_guard lock(status_mutex_);
+                ui.setActionStatus(action_status_);
             }
 
-            if (ui.consumeExecuteRequest()) {
-                execute_pub_->publish(std_msgs::msg::Empty{});
+            geometry_msgs::msg::PoseStamped pose_msg;
+            pose_msg.header.stamp = this->now();
+            pose_msg.header.frame_id = "base_link";
+            pose_msg.pose = toRosPose(targetObject->position, targetObject->quaternion);
+
+            if (ui.consumePlanRequest() && !action_busy_.exchange(true)) {
+                has_plan_ = false;
+                sendPlanGoal(pose_msg);
+            }
+
+            if (ui.consumeExecuteRequest() && !action_busy_.exchange(true)) {
                 animator_->stop();
-                RCLCPP_INFO(get_logger(), "Execute requested");
+                sendExecuteGoal();
+            }
+
+            if (ui.consumePlanAndExecuteRequest() && !action_busy_.exchange(true)) {
+                has_plan_ = false;
+                animator_->stop();
+                sendPlanAndExecuteGoal(pose_msg);
             }
 
             if (ui.consumeResetGizmoRequest()) {
                 const auto transform = robot_->getEndEffectorTransform();
                 targetObject->position.setFromMatrixPosition(transform);
                 targetObject->quaternion.setFromRotationMatrix(transform);
-                ik_ghost_->setJointValues(robot_->jointValues());
+                { std::lock_guard lock(ik_ghost_mutex_); ik_ghost_->setJointValues(robot_->jointValues()); }
             }
         }
 
@@ -287,11 +397,14 @@ void KineEnvironmentNode::run() {
         }
     });
 
-    rclcpp::shutdown();
+    if (rclcpp::ok()) {
+        rclcpp::shutdown();
+    }
 }
 
 void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose) {
     if (!ik_client_->wait_for_service(0s)) return;
+    if (ik_pending_.exchange(true)) return;
 
     auto request = std::make_shared<moveit_msgs::srv::GetPositionIK::Request>();
     request->ik_request.group_name = "ur_manipulator";
@@ -300,12 +413,14 @@ void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose)
     request->ik_request.pose_stamped.pose = target_pose;
     request->ik_request.avoid_collisions = false;
 
-    // Provide current joint state as seed for IK solver
-    auto& robot_state = request->ik_request.robot_state.joint_state;
-    robot_state.name = jointNames_;
-    robot_state.position.resize(ik_ghost_->numDOF());
-    for (size_t i = 0; i < ik_ghost_->numDOF(); ++i) {
-        robot_state.position[i] = static_cast<double>(ik_ghost_->getJointValue(i));
+    {
+        std::lock_guard lock(ik_ghost_mutex_);
+        auto& robot_state = request->ik_request.robot_state.joint_state;
+        robot_state.name = jointNames_;
+        robot_state.position.resize(ik_ghost_->numDOF());
+        for (size_t i = 0; i < ik_ghost_->numDOF(); ++i) {
+            robot_state.position[i] = static_cast<double>(ik_ghost_->getJointValue(i));
+        }
     }
 
     ik_client_->async_send_request(
@@ -314,10 +429,12 @@ void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose)
                 const auto& response = future.get();
                 if (response->error_code.val == moveit_msgs::msg::MoveItErrorCodes::SUCCESS) {
                     const auto& positions = response->solution.joint_state.position;
+                    std::lock_guard lock(ik_ghost_mutex_);
                     for (size_t i = 0; i < positions.size() && i < ik_ghost_->numDOF(); ++i) {
                         ik_ghost_->setJointValue(i, static_cast<float>(positions[i]));
                     }
                 }
+                ik_pending_ = false;
             });
 }
 

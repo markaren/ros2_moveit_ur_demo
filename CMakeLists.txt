@@ -14,6 +14,9 @@ endif ()
 
 find_package(ament_cmake REQUIRED)
 
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/install/include/target_planner")
+
+
 # Add each cpp package as a subdirectory
 add_subdirectory(src/fake_controller)
 add_subdirectory(src/target_planner)
@@ -35,7 +38,7 @@ endforeach ()
 
 foreach (pkg IN LISTS PACKAGES)
     add_custom_target(colcon_build_${pkg}
-            COMMAND colcon build --base-paths src --packages-select ${pkg} ${COLCON_INSTALL_FLAG} --event-handlers console_direct+
+            COMMAND colcon build --base-paths src --packages-select ${pkg} ${COLCON_INSTALL_FLAG} --cmake-args -DCMAKE_BUILD_TYPE=Release --event-handlers console_direct+
             WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
             USES_TERMINAL
             COMMENT "Running colcon build ${COLCON_INSTALL_FLAG} for package ${pkg}"
@@ -43,7 +46,7 @@ foreach (pkg IN LISTS PACKAGES)
 endforeach ()
 
 add_custom_target(colcon_build_all
-        COMMAND colcon build --base-paths src ${COLCON_INSTALL_FLAG} --event-handlers console_direct+
+        COMMAND colcon build --base-paths src ${COLCON_INSTALL_FLAG} --cmake-args -DCMAKE_BUILD_TYPE=Release --event-handlers console_direct+
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         USES_TERMINAL
         COMMENT "Running colcon build ${COLCON_INSTALL_FLAG}"

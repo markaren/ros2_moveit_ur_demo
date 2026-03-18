@@ -1,0 +1,11 @@
+# Goal
+geometry_msgs/PoseStamped target_pose
+---
+# Result
+bool success
+string message
+uint32 trajectory_points
+---
+# Feedback
+uint8 attempt
+uint8 max_attempts

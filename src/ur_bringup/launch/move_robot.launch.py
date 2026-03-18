@@ -36,7 +36,7 @@ def launch_setup(context, *args, **kwargs):
 
     planner_node = Node(
         package="target_planner",
-        executable="target_planner",
+        executable="target_planner_node",
         name="target_planner",
         output="screen",
         parameters=[{"use_sim_time": False}],

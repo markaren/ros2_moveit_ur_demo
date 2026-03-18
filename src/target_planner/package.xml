@@ -3,16 +3,21 @@
 <package format="3">
     <name>target_planner</name>
     <version>0.0.1</version>
-    <description>Subscribes to /target_pose and plans+executes with MoveIt</description>
+    <description>Action-based MoveIt planner/executor for the UR manipulator</description>
 
     <maintainer email="laht@ntnu.no">Lars Ivar Hatledal</maintainer>
     <license>Apache License 2.0</license>
 
     <buildtool_depend>ament_cmake</buildtool_depend>
+    <buildtool_depend>rosidl_default_generators</buildtool_depend>
 
     <depend>rclcpp</depend>
-    <depend>std_msgs</depend>
+    <depend>rclcpp_action</depend>
     <depend>geometry_msgs</depend>
+    <depend>action_msgs</depend>
+    <depend>moveit_ros_planning_interface</depend>
+
+    <member_of_group>rosidl_interface_packages</member_of_group>
 
     <test_depend>ament_lint_auto</test_depend>
     <test_depend>ament_lint_common</test_depend>

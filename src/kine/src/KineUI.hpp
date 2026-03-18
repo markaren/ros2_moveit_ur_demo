@@ -27,13 +27,12 @@ public:
     [[nodiscard]] bool loopGhost() const { return loopGhost_; }
     [[nodiscard]] bool showTrail() const { return showTrail_; }
 
-
     // Returns modified joint values if any slider changed since last call.
     std::optional<std::vector<float>> consumeJointChange() {
         return std::exchange(pendingJointChange_, std::nullopt);
     }
 
-    // True if "Plan goal" was clicked since last call.
+    // True if "Plan" was clicked since last call.
     bool consumePlanRequest() {
         return std::exchange(pendingPlanRequest_, false);
     }
@@ -43,10 +42,19 @@ public:
         return std::exchange(pendingExecuteRequest_, false);
     }
 
+    // True if "Plan & Execute" was clicked since last call.
+    bool consumePlanAndExecuteRequest() {
+        return std::exchange(pendingPlanAndExecuteRequest_, false);
+    }
+
     // True if "Reset gizmo" was clicked since last call.
     bool consumeResetGizmoRequest() {
         return std::exchange(pendingResetGizmoRequest_, false);
     }
+
+    void setBusy(bool busy) { busy_ = busy; }
+    void setHasPlan(bool has_plan) { hasPlan_ = has_plan; }
+    void setActionStatus(const std::string& status) { action_status_ = status; }
 
 protected:
     void onRender() override {
@@ -78,23 +86,37 @@ protected:
         if (goalPlanning_) {
             ImGui::Checkbox("Loop ghost animation", &loopGhost_);
 
-            if (ImGui::Button("Plan goal")) {
+            ImGui::BeginDisabled(busy_);
+
+            if (ImGui::Button("Plan")) {
                 pendingPlanRequest_ = true;
-                planRequested_ = true;
             }
 
-            ImGui::BeginDisabled(!planRequested_);
+            ImGui::SameLine();
+
+            ImGui::BeginDisabled(!hasPlan_);
             if (ImGui::Button("Execute")) {
                 pendingExecuteRequest_ = true;
-                planRequested_ = false;
+                hasPlan_ = false;
             }
             ImGui::EndDisabled();
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("Plan & Execute")) {
+                pendingPlanAndExecuteRequest_ = true;
+            }
+
+            ImGui::EndDisabled();
+
+            if (!action_status_.empty()) {
+                ImGui::TextUnformatted(action_status_.c_str());
+            }
 
             if (ImGui::Button("Reset gizmo")) {
                 pendingResetGizmoRequest_ = true;
             }
         }
-
 
         ImGui::Checkbox("Show EE Trail", &showTrail_);
         {
@@ -120,7 +142,6 @@ protected:
                         euler.z * math::RAD2DEG);
         }
 
-
         ImGui::End();
     }
 
@@ -130,14 +151,17 @@ private:
     const std::vector<std::string>& jointNames_;
     bool goalPlanning_;
 
-    bool showCollisionGeometry_ = false;
     bool showTrail_ = true;
     bool loopGhost_ = true;
-    bool planRequested_ = false;
+    bool busy_ = false;
+    bool hasPlan_ = false;
+
+    std::string action_status_;
 
     std::optional<std::vector<float>> pendingJointChange_;
     bool pendingPlanRequest_ = false;
     bool pendingExecuteRequest_ = false;
+    bool pendingPlanAndExecuteRequest_ = false;
     bool pendingResetGizmoRequest_ = false;
 };
 
