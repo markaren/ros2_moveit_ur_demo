@@ -10,6 +10,12 @@
 class TargetPlanner: public rclcpp::Node {
 public:
     TargetPlanner(): Node("target_planner") {
+        declare_parameter("planning_time", 5.0);
+        declare_parameter("goal_position_tolerance", 0.01);
+        declare_parameter("goal_orientation_tolerance", 0.1);
+        declare_parameter("max_velocity_scaling_factor", 1.0);
+        declare_parameter("max_acceleration_scaling_factor", 1.0);
+
         pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
                 "target_pose", 10,
                 [this](geometry_msgs::msg::PoseStamped::SharedPtr msg) {
@@ -36,11 +42,11 @@ public:
     void init() {
         move_group_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(
                 shared_from_this(), "ur_manipulator");
-        move_group_->setPlanningTime(5.0);
-        move_group_->setGoalPositionTolerance(0.01);
-        move_group_->setGoalOrientationTolerance(0.1);
-        move_group_->setMaxVelocityScalingFactor(1.0);
-        move_group_->setMaxAccelerationScalingFactor(1.0);
+        move_group_->setPlanningTime(get_parameter("planning_time").as_double());
+        move_group_->setGoalPositionTolerance(get_parameter("goal_position_tolerance").as_double());
+        move_group_->setGoalOrientationTolerance(get_parameter("goal_orientation_tolerance").as_double());
+        move_group_->setMaxVelocityScalingFactor(get_parameter("max_velocity_scaling_factor").as_double());
+        move_group_->setMaxAccelerationScalingFactor(get_parameter("max_acceleration_scaling_factor").as_double());
         RCLCPP_INFO(get_logger(), "TargetPlanner ready");
     }
 
