@@ -2,6 +2,7 @@
 #define KINEENVIRONMENT_HPP
 
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <mutex>
 
@@ -59,6 +60,10 @@ private:
     std::atomic<bool> ik_pending_{false};
     std::mutex status_mutex_;
     std::string action_status_;
+
+    std::function<void()> cancel_fn_;
+    std::mutex cancel_mutex_;
+    std::atomic<bool> cancel_requested_{false};
 
     std::mutex robot_mutex_;
     std::mutex ik_ghost_mutex_;

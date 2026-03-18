@@ -52,6 +52,11 @@ public:
         return std::exchange(pendingResetGizmoRequest_, false);
     }
 
+    // True if "Cancel" was clicked since last call.
+    bool consumeCancelRequest() {
+        return std::exchange(pendingCancelRequest_, false);
+    }
+
     void setBusy(bool busy) { busy_ = busy; }
     void setHasPlan(bool has_plan) { hasPlan_ = has_plan; }
     void setActionStatus(const std::string& status) { action_status_ = status; }
@@ -109,6 +114,13 @@ protected:
 
             ImGui::EndDisabled();
 
+            if (busy_) {
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel")) {
+                    pendingCancelRequest_ = true;
+                }
+            }
+
             if (!action_status_.empty()) {
                 ImGui::TextUnformatted(action_status_.c_str());
             }
@@ -163,6 +175,7 @@ private:
     bool pendingExecuteRequest_ = false;
     bool pendingPlanAndExecuteRequest_ = false;
     bool pendingResetGizmoRequest_ = false;
+    bool pendingCancelRequest_ = false;
 };
 
 #endif//KINEUI_HPP

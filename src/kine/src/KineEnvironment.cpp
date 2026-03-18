@@ -154,11 +154,28 @@ void KineEnvironmentNode::sendPlanGoal(const geometry_msgs::msg::PoseStamped& ta
     goal.target_pose = target;
 
     auto options = rclcpp_action::Client<Plan>::SendGoalOptions{};
+    options.goal_response_callback = [this](rclcpp_action::ClientGoalHandle<Plan>::SharedPtr handle) {
+        if (!handle) {
+            setStatus("Plan goal rejected");
+            action_busy_ = false;
+            return;
+        }
+        std::lock_guard lock(cancel_mutex_);
+        cancel_fn_ = [this, handle] { plan_client_->async_cancel_goal(handle); };
+        if (cancel_requested_) {
+            cancel_fn_();
+            cancel_fn_ = nullptr;
+        }
+    };
     options.feedback_callback = [this](auto, const std::shared_ptr<const Plan::Feedback> fb) {
         setStatus("Planning... attempt " + std::to_string(fb->attempt) + "/" + std::to_string(fb->max_attempts));
     };
     options.result_callback = [this](const rclcpp_action::ClientGoalHandle<Plan>::WrappedResult& result) {
-        if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+        { std::lock_guard lock(cancel_mutex_); cancel_fn_ = nullptr; }
+        cancel_requested_ = false;
+        if (result.code == rclcpp_action::ResultCode::CANCELED) {
+            setStatus("Plan canceled");
+        } else if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
             setStatus("Plan succeeded (" + std::to_string(result.result->trajectory_points) + " points)");
             has_plan_ = true;
         } else {
@@ -179,12 +196,29 @@ void KineEnvironmentNode::sendExecuteGoal() {
     }
 
     auto options = rclcpp_action::Client<Execute>::SendGoalOptions{};
+    options.goal_response_callback = [this](rclcpp_action::ClientGoalHandle<Execute>::SharedPtr handle) {
+        if (!handle) {
+            setStatus("Execute goal rejected");
+            action_busy_ = false;
+            return;
+        }
+        std::lock_guard lock(cancel_mutex_);
+        cancel_fn_ = [this, handle] { execute_client_->async_cancel_goal(handle); };
+        if (cancel_requested_) {
+            cancel_fn_();
+            cancel_fn_ = nullptr;
+        }
+    };
     options.feedback_callback = [this](auto, const auto&) {
         setStatus("Executing...");
     };
     options.result_callback = [this](const rclcpp_action::ClientGoalHandle<Execute>::WrappedResult& result) {
+        { std::lock_guard lock(cancel_mutex_); cancel_fn_ = nullptr; }
+        cancel_requested_ = false;
         animator_->stop();
-        if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+        if (result.code == rclcpp_action::ResultCode::CANCELED) {
+            setStatus("Execution canceled");
+        } else if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
             setStatus("Execution succeeded");
         } else {
             setStatus("Execution failed: " + result.result->message);
@@ -207,12 +241,29 @@ void KineEnvironmentNode::sendPlanAndExecuteGoal(const geometry_msgs::msg::PoseS
     goal.target_pose = target;
 
     auto options = rclcpp_action::Client<PlanAndExecute>::SendGoalOptions{};
+    options.goal_response_callback = [this](rclcpp_action::ClientGoalHandle<PlanAndExecute>::SharedPtr handle) {
+        if (!handle) {
+            setStatus("Plan & execute goal rejected");
+            action_busy_ = false;
+            return;
+        }
+        std::lock_guard lock(cancel_mutex_);
+        cancel_fn_ = [this, handle] { plan_and_execute_client_->async_cancel_goal(handle); };
+        if (cancel_requested_) {
+            cancel_fn_();
+            cancel_fn_ = nullptr;
+        }
+    };
     options.feedback_callback = [this](auto, const std::shared_ptr<const PlanAndExecute::Feedback> fb) {
         setStatus(fb->phase + "...");
     };
     options.result_callback = [this](const rclcpp_action::ClientGoalHandle<PlanAndExecute>::WrappedResult& result) {
+        { std::lock_guard lock(cancel_mutex_); cancel_fn_ = nullptr; }
+        cancel_requested_ = false;
         animator_->stop();
-        if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+        if (result.code == rclcpp_action::ResultCode::CANCELED) {
+            setStatus("Plan & execute canceled");
+        } else if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
             setStatus("Plan & execute succeeded (" + std::to_string(result.result->trajectory_points) + " points)");
         } else {
             setStatus("Plan & execute failed: " + result.result->message);
@@ -371,6 +422,15 @@ void KineEnvironmentNode::run() {
                 has_plan_ = false;
                 animator_->stop();
                 sendPlanAndExecuteGoal(pose_msg);
+            }
+
+            if (ui.consumeCancelRequest()) {
+                cancel_requested_ = true;
+                std::lock_guard lock(cancel_mutex_);
+                if (cancel_fn_) {
+                    cancel_fn_();
+                    cancel_fn_ = nullptr;
+                }
             }
 
             if (ui.consumeResetGizmoRequest()) {

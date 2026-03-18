@@ -194,8 +194,12 @@ private:
     /// Executes a plan. Returns the MoveIt error code.
     moveit::core::MoveItErrorCode run_execute(
             const moveit::planning_interface::MoveGroupInterface::Plan& plan) {
-        std::lock_guard lock(move_group_mutex_);
-        move_group_->setStartStateToCurrentState();
+        {
+            std::lock_guard lock(move_group_mutex_);
+            move_group_->setStartStateToCurrentState();
+        }
+        // execute() is blocking but must NOT hold move_group_mutex_, because
+        // the cancel callback acquires that mutex to call stop().
         return move_group_->execute(plan);
     }
 
