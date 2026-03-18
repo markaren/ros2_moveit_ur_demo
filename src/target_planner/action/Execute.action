@@ -6,3 +6,4 @@ bool success
 string message
 ---
 # Feedback
+string state

@@ -137,7 +137,7 @@ private:
     };
 
     std::atomic<State> state_{State::IDLE};
-    std::atomic<bool> has_plan_{false};
+    bool has_plan_{false};
     std::mutex plan_mutex_;
     std::mutex move_group_mutex_;
     std::thread plan_thread_;
@@ -161,21 +161,38 @@ private:
         moveit::planning_interface::MoveGroupInterface::Plan candidate;
         constexpr int max_attempts = 3;
 
-        std::lock_guard lock(move_group_mutex_);
-        move_group_->setStartStateToCurrentState();
-        move_group_->setPoseReferenceFrame(target.header.frame_id);
-        move_group_->setPoseTarget(target.pose, "tool0");
+        {
+            std::lock_guard lock(move_group_mutex_);
+            move_group_->setStartStateToCurrentState();
+            move_group_->setPoseReferenceFrame(target.header.frame_id);
+            move_group_->setPoseTarget(target.pose, "tool0");
+        }
 
         for (int attempt = 1; attempt <= max_attempts; ++attempt) {
             if (is_canceling()) break;
             if (on_attempt) on_attempt(attempt, max_attempts);
-            out_result = move_group_->plan(candidate);
+            {
+                std::lock_guard lock(move_group_mutex_);
+                out_result = move_group_->plan(candidate);
+            }
             if (out_result == moveit::core::MoveItErrorCode::SUCCESS) break;
             RCLCPP_WARN(get_logger(), "Planning attempt %d/%d failed (error: %d)", attempt, max_attempts, out_result.val);
         }
 
-        move_group_->clearPoseTargets();
+        {
+            std::lock_guard lock(move_group_mutex_);
+            move_group_->clearPoseTargets();
+        }
+
         return candidate;
+    }
+
+    /// Executes a plan. Returns the MoveIt error code.
+    moveit::core::MoveItErrorCode run_execute(
+            const moveit::planning_interface::MoveGroupInterface::Plan& plan) {
+        std::lock_guard lock(move_group_mutex_);
+        move_group_->setStartStateToCurrentState();
+        return move_group_->execute(plan);
     }
 
     void do_plan(std::shared_ptr<GoalHandlePlan> goal_handle) {
@@ -198,6 +215,8 @@ private:
                 });
 
         if (goal_handle->is_canceling()) {
+            std::lock_guard lock(move_group_mutex_);
+            move_group_->stop();
             goal_handle->canceled(result);
             return;
         }
@@ -235,19 +254,20 @@ private:
                 goal_handle->abort(result);
                 return;
             }
-            plan_copy = last_plan_;
+            plan_copy = std::move(last_plan_);
             has_plan_ = false;
         }
 
+        auto feedback = std::make_shared<Execute::Feedback>();
+        feedback->state = "EXECUTING";
+        goal_handle->publish_feedback(feedback);
+
         RCLCPP_INFO(get_logger(), "Executing plan...");
-        moveit::core::MoveItErrorCode error;
-        {
-            std::lock_guard lock(move_group_mutex_);
-            move_group_->setStartStateToCurrentState();
-            error = move_group_->execute(plan_copy);
-        }
+        const auto error = run_execute(plan_copy);
 
         if (goal_handle->is_canceling()) {
+            std::lock_guard lock(move_group_mutex_);
+            move_group_->stop();
             goal_handle->canceled(result);
             return;
         }
@@ -298,18 +318,16 @@ private:
         }
 
         // Phase 2: Execute
-        state_ = State::EXECUTING;
+        state_.store(State::EXECUTING, std::memory_order_relaxed);
         feedback->phase = "EXECUTING";
         goal_handle->publish_feedback(feedback);
 
         RCLCPP_INFO(get_logger(), "Executing plan...");
-        {
-            std::lock_guard lock(move_group_mutex_);
-            move_group_->setStartStateToCurrentState();
-            error = move_group_->execute(candidate);
-        }
+        error = run_execute(candidate);
 
         if (goal_handle->is_canceling()) {
+            std::lock_guard lock(move_group_mutex_);
+            move_group_->stop();
             goal_handle->canceled(result);
             return;
         }

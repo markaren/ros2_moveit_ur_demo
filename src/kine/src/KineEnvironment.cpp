@@ -144,8 +144,8 @@ void KineEnvironmentNode::setStatus(const std::string& status) {
 }
 
 void KineEnvironmentNode::sendPlanGoal(const geometry_msgs::msg::PoseStamped& target) {
-    if (!plan_client_->wait_for_action_server(0s)) {
-        setStatus("Plan action server not available");
+    if (!servers_ready_) {
+        setStatus("Action servers not available");
         action_busy_ = false;
         return;
     }
@@ -172,19 +172,24 @@ void KineEnvironmentNode::sendPlanGoal(const geometry_msgs::msg::PoseStamped& ta
 }
 
 void KineEnvironmentNode::sendExecuteGoal() {
-    if (!execute_client_->wait_for_action_server(0s)) {
-        setStatus("Execute action server not available");
+    if (!servers_ready_) {
+        setStatus("Action servers not available");
         action_busy_ = false;
         return;
     }
 
     auto options = rclcpp_action::Client<Execute>::SendGoalOptions{};
+    options.feedback_callback = [this](auto, const auto&) {
+        setStatus("Executing...");
+    };
     options.result_callback = [this](const rclcpp_action::ClientGoalHandle<Execute>::WrappedResult& result) {
+        animator_->stop();
         if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
             setStatus("Execution succeeded");
         } else {
             setStatus("Execution failed: " + result.result->message);
         }
+        has_plan_ = false;
         action_busy_ = false;
     };
 
@@ -192,8 +197,8 @@ void KineEnvironmentNode::sendExecuteGoal() {
 }
 
 void KineEnvironmentNode::sendPlanAndExecuteGoal(const geometry_msgs::msg::PoseStamped& target) {
-    if (!plan_and_execute_client_->wait_for_action_server(0s)) {
-        setStatus("Plan&Execute action server not available");
+    if (!servers_ready_) {
+        setStatus("Action servers not available");
         action_busy_ = false;
         return;
     }
@@ -206,6 +211,7 @@ void KineEnvironmentNode::sendPlanAndExecuteGoal(const geometry_msgs::msg::PoseS
         setStatus(fb->phase + "...");
     };
     options.result_callback = [this](const rclcpp_action::ClientGoalHandle<PlanAndExecute>::WrappedResult& result) {
+        animator_->stop();
         if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
             setStatus("Plan & execute succeeded (" + std::to_string(result.result->trajectory_points) + " points)");
         } else {
@@ -293,6 +299,19 @@ void KineEnvironmentNode::run() {
         canvas.addKeyListener(*keyListener);
     }
 
+    if (goal_planning_) {
+        setStatus("Waiting for action servers...");
+        const bool ok = plan_client_->wait_for_action_server(5s) &&
+                        execute_client_->wait_for_action_server(5s) &&
+                        plan_and_execute_client_->wait_for_action_server(5s);
+        if (ok) {
+            servers_ready_ = true;
+            setStatus("Ready");
+        } else {
+            setStatus("Action servers not available");
+        }
+    }
+
     robot_->showColliders(false);
     KineUI ui(canvas, robot_, robot_mutex_, jointNames_, goal_planning_);
 
@@ -378,7 +397,9 @@ void KineEnvironmentNode::run() {
         }
     });
 
-    rclcpp::shutdown();
+    if (rclcpp::ok()) {
+        rclcpp::shutdown();
+    }
 }
 
 void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose) {

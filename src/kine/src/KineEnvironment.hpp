@@ -53,6 +53,7 @@ private:
 
     rclcpp::Client<moveit_msgs::srv::GetPositionIK>::SharedPtr ik_client_;
 
+    std::atomic<bool> servers_ready_{false};
     std::atomic<bool> action_busy_{false};
     std::atomic<bool> has_plan_{false};
     std::mutex status_mutex_;
