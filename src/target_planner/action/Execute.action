@@ -1,0 +1,8 @@
+# Goal
+# (empty - executes the last stored plan)
+---
+# Result
+bool success
+string message
+---
+# Feedback

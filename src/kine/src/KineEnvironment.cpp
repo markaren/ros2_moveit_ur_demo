@@ -107,19 +107,18 @@ KineEnvironmentNode::KineEnvironmentNode(): Node("kine_environment_node") {
                 "display_planned_path", 10,
                 [this](moveit_msgs::msg::DisplayTrajectory::SharedPtr msg) {
                     animator_->loadTrajectory(msg);
-
                     RCLCPP_INFO(get_logger(), "Ghost trajectory received");
                 });
 
-        execute_pub_ = this->create_publisher<std_msgs::msg::Empty>(
-                "execute_plan", 10);
+        plan_client_ = rclcpp_action::create_client<Plan>(this, "plan");
+        execute_client_ = rclcpp_action::create_client<Execute>(this, "execute");
+        plan_and_execute_client_ = rclcpp_action::create_client<PlanAndExecute>(this, "plan_and_execute");
     }
 
     joint_pub_ =
             this->create_publisher<
                     sensor_msgs::msg::JointState>(goal_planning_ ? "joint_commands" : "joint_states", 10);
 
-    // subscription: receive 3-element Float32MultiArray to set joint values
     joint_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
             "joint_states", 10,
             [this](sensor_msgs::msg::JointState::SharedPtr msg) {
@@ -135,10 +134,88 @@ KineEnvironmentNode::KineEnvironmentNode(): Node("kine_environment_node") {
                 }
             });
 
-    target_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
-            "target_pose", 10);
-
     thread_ = std::jthread(&KineEnvironmentNode::run, this);
+}
+
+void KineEnvironmentNode::setStatus(const std::string& status) {
+    std::lock_guard lock(status_mutex_);
+    action_status_ = status;
+    RCLCPP_INFO(get_logger(), "%s", status.c_str());
+}
+
+void KineEnvironmentNode::sendPlanGoal(const geometry_msgs::msg::PoseStamped& target) {
+    if (!plan_client_->wait_for_action_server(0s)) {
+        setStatus("Plan action server not available");
+        action_busy_ = false;
+        return;
+    }
+
+    Plan::Goal goal;
+    goal.target_pose = target;
+
+    auto options = rclcpp_action::Client<Plan>::SendGoalOptions{};
+    options.feedback_callback = [this](auto, const std::shared_ptr<const Plan::Feedback> fb) {
+        setStatus("Planning... attempt " + std::to_string(fb->attempt) + "/" + std::to_string(fb->max_attempts));
+    };
+    options.result_callback = [this](const rclcpp_action::ClientGoalHandle<Plan>::WrappedResult& result) {
+        if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+            setStatus("Plan succeeded (" + std::to_string(result.result->trajectory_points) + " points)");
+            has_plan_ = true;
+        } else {
+            setStatus("Plan failed: " + result.result->message);
+            has_plan_ = false;
+        }
+        action_busy_ = false;
+    };
+
+    plan_client_->async_send_goal(goal, options);
+}
+
+void KineEnvironmentNode::sendExecuteGoal() {
+    if (!execute_client_->wait_for_action_server(0s)) {
+        setStatus("Execute action server not available");
+        action_busy_ = false;
+        return;
+    }
+
+    auto options = rclcpp_action::Client<Execute>::SendGoalOptions{};
+    options.result_callback = [this](const rclcpp_action::ClientGoalHandle<Execute>::WrappedResult& result) {
+        if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+            setStatus("Execution succeeded");
+        } else {
+            setStatus("Execution failed: " + result.result->message);
+        }
+        action_busy_ = false;
+    };
+
+    execute_client_->async_send_goal(Execute::Goal{}, options);
+}
+
+void KineEnvironmentNode::sendPlanAndExecuteGoal(const geometry_msgs::msg::PoseStamped& target) {
+    if (!plan_and_execute_client_->wait_for_action_server(0s)) {
+        setStatus("Plan&Execute action server not available");
+        action_busy_ = false;
+        return;
+    }
+
+    PlanAndExecute::Goal goal;
+    goal.target_pose = target;
+
+    auto options = rclcpp_action::Client<PlanAndExecute>::SendGoalOptions{};
+    options.feedback_callback = [this](auto, const std::shared_ptr<const PlanAndExecute::Feedback> fb) {
+        setStatus(fb->phase + "...");
+    };
+    options.result_callback = [this](const rclcpp_action::ClientGoalHandle<PlanAndExecute>::WrappedResult& result) {
+        if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+            setStatus("Plan & execute succeeded (" + std::to_string(result.result->trajectory_points) + " points)");
+        } else {
+            setStatus("Plan & execute failed: " + result.result->message);
+        }
+        has_plan_ = false;
+        action_busy_ = false;
+    };
+
+    plan_and_execute_client_->async_send_goal(goal, options);
 }
 
 void KineEnvironmentNode::run() {
@@ -170,7 +247,6 @@ void KineEnvironmentNode::run() {
     grid->rotation.x = math::PI / 2;
     scene.add(grid);
 
-    // Use Z-up camera to match ROS coordinate convention
     camera.position.set(robotSize.x, -robotSize.y * 3.f, robotSize.z * 3.f);
 
     OrbitControls orbitControls(camera, canvas);
@@ -249,18 +325,33 @@ void KineEnvironmentNode::run() {
         }
 
         if (goal_planning_) {
-            if (ui.consumePlanRequest()) {
-                geometry_msgs::msg::PoseStamped pose_msg;
-                pose_msg.header.stamp = this->now();
-                pose_msg.header.frame_id = "base_link";
-                pose_msg.pose = toRosPose(targetObject->position, targetObject->quaternion);
-                target_pose_pub_->publish(pose_msg);
+            // Sync action state to UI
+            ui.setBusy(action_busy_);
+            ui.setHasPlan(has_plan_);
+            {
+                std::lock_guard lock(status_mutex_);
+                ui.setActionStatus(action_status_);
             }
 
-            if (ui.consumeExecuteRequest()) {
-                execute_pub_->publish(std_msgs::msg::Empty{});
+            geometry_msgs::msg::PoseStamped pose_msg;
+            pose_msg.header.stamp = this->now();
+            pose_msg.header.frame_id = "base_link";
+            pose_msg.pose = toRosPose(targetObject->position, targetObject->quaternion);
+
+            if (ui.consumePlanRequest() && !action_busy_.exchange(true)) {
+                has_plan_ = false;
+                sendPlanGoal(pose_msg);
+            }
+
+            if (ui.consumeExecuteRequest() && !action_busy_.exchange(true)) {
                 animator_->stop();
-                RCLCPP_INFO(get_logger(), "Execute requested");
+                sendExecuteGoal();
+            }
+
+            if (ui.consumePlanAndExecuteRequest() && !action_busy_.exchange(true)) {
+                has_plan_ = false;
+                animator_->stop();
+                sendPlanAndExecuteGoal(pose_msg);
             }
 
             if (ui.consumeResetGizmoRequest()) {
@@ -300,7 +391,6 @@ void KineEnvironmentNode::requestIK(const geometry_msgs::msg::Pose& target_pose)
     request->ik_request.pose_stamped.pose = target_pose;
     request->ik_request.avoid_collisions = false;
 
-    // Provide current joint state as seed for IK solver
     auto& robot_state = request->ik_request.robot_state.joint_state;
     robot_state.name = jointNames_;
     robot_state.position.resize(ik_ghost_->numDOF());

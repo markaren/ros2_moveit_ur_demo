@@ -15,22 +15,39 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 
-add_executable(target_planner target_planner.cpp)
-ament_target_dependencies(target_planner
+# rosidl_generator_py requires python_d.exe on Windows Debug builds,
+# which does not exist in conda/pixi environments. Fall back to release Python.
+if(WIN32 AND NOT PYTHON_EXECUTABLE_DEBUG)
+    find_package(Python3 QUIET COMPONENTS Interpreter)
+    set(PYTHON_EXECUTABLE_DEBUG "${Python3_EXECUTABLE}" CACHE FILEPATH "" FORCE)
+endif()
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+        "action/Plan.action"
+        "action/Execute.action"
+        "action/PlanAndExecute.action"
+        DEPENDENCIES geometry_msgs
+)
+
+add_executable(${PROJECT_NAME}_node target_planner.cpp)
+ament_target_dependencies(${PROJECT_NAME}_node
         rclcpp
-        std_msgs
+        rclcpp_action
         geometry_msgs
         moveit_ros_planning_interface
 )
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(${PROJECT_NAME}_node ${cpp_typesupport_target})
 
 install(TARGETS
-        target_planner
+        ${PROJECT_NAME}_node
         DESTINATION lib/${PROJECT_NAME}
 )
 
