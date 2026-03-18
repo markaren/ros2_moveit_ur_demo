@@ -13,7 +13,6 @@ setup(
     zip_safe=True,
     entry_points={
         'console_scripts': [
-            'topic_commander = joint_commander.topic_commander:main',
             'action_commander = joint_commander.action_commander:main',
         ],
     },
