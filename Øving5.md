@@ -13,7 +13,7 @@ I denne øvingen skal du bli kjent med **MoveIt 2** — et rammeverk for bevegel
 ### Forutsetninger
 
 - Du har gjennomført øving 1–4 og har grunnleggende kjennskap til ROS 2 (topics, services, launch-filer)
-- Du har et fungerende ROS 2-miljø (RoboStack på Windows eller native ROS 2 Jazzy på Linux)
+- Du har et fungerende ROS 2-miljø (RoboStack på Windows (se [ROBOSTACK.md](doc/ROBOSTACK.md)) eller native ROS 2 Jazzy på Linux)
 - Docker Desktop er installert (for Del B)
 
 ### Pakker i workspace-et
