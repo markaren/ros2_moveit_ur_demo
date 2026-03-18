@@ -14,6 +14,25 @@
 
 using namespace std::chrono_literals;
 
+/**
+ * @brief Simulated joint controller that publishes joint states and executes
+ *        trajectories received via the FollowJointTrajectory action interface.
+ *
+ * Interpolates between waypoints using linear or cubic-Hermite interpolation
+ * (configurable via the `interpolation` parameter) and publishes joint state
+ * at a fixed rate. Also accepts direct joint commands on the `joint_commands`
+ * topic for immediate position overrides.
+ *
+ * **Action:**
+ * - `/<controller_name>/follow_joint_trajectory` (control_msgs/FollowJointTrajectory)
+ *
+ * **Parameters:**
+ * - `joint_names` (string[]): names of the joints to control.
+ * - `controller_name` (string, default "fake_ur_manipulator_controller"): action namespace.
+ * - `publish_rate_hz` (double, default 50): joint-state publish rate.
+ * - `execution_rate_hz` (double, default 125): trajectory interpolation rate.
+ * - `interpolation` (string, default "cubic"): "cubic" or "linear".
+ */
 class FakeController: public rclcpp::Node {
 public:
     FakeController()
