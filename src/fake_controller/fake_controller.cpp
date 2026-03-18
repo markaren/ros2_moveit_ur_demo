@@ -147,11 +147,6 @@ private:
         return h00 * q0 + h10 * (v0 * dt) + h01 * q1 + h11 * (v1 * dt);
     }
 
-    /// Compute velocity via finite‑difference (if velocities aren't supplied).
-    static double fd_velocity(double q_prev, double q_next, double dt) {
-        return (dt > 0.0) ? (q_next - q_prev) / dt : 0.0;
-    }
-
     // ================================================================
     //  Action callbacks
     // ================================================================
