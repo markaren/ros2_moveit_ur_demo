@@ -2,7 +2,20 @@
 
 ## Innledning
 
-I denne øvingen skal du bli kjent med **MoveIt 2** — et rammeverk for bevegelsesplanlegging i ROS 2 — og **Universal Robots (UR)**-simulatorer. Du vil bruke et ferdig workspace med flere pakker som sammen lar deg visualisere, planlegge og kjøre trajektorier på en UR5e-robot.
+I denne øvingen skal dere bli kjent med **MoveIt 2** — et rammeverk for bevegelsesplanlegging i ROS 2 — 
+og **Universal Robots (UR)**-simulatorer. 
+Dere vil bruke et ferdig workspace med flere pakker som sammen lar dere visualisere, 
+planlegge og kjøre trajektorier på en UR5e-robot.
+
+>Ved feil i øvingen, kontakt Lars Ivar.
+
+### Arbeidsform
+
+Øvingen gjøres i **par**. Dere jobber sammen gjennom alle delene — diskuter, hjelp hverandre og del skjermen når én skriver.
+Begge skal forstå det som leveres inn.
+
+---
+
 
 Øvingen er delt i tre deler:
 
@@ -210,6 +223,54 @@ Observer at roboten følger en sekvens av waypoints.
 - Hvordan feedback logges underveis
 
 > Denne koden blir referanse for Del C.
+
+**Send en trajektorie direkte fra CLI:**
+
+Du kan sende `FollowJointTrajectory`-goals uten å skrive en node — nyttig for rask testing.
+Inspiser action-typen først:
+
+```bash
+ros2 action info /simulated_joint_controller/follow_joint_trajectory --show-types
+```
+
+Send ett waypoint (robotens hjemposisjon, nås på 3 sekunder):
+
+```bash
+ros2 action send_goal /simulated_joint_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {
+      joint_names: [shoulder_pan_joint, shoulder_lift_joint, elbow_joint,
+                    wrist_1_joint, wrist_2_joint, wrist_3_joint],
+      points: [{
+          positions: [0.0, -1.5708, 0.0, -1.5708, 0.0, 0.0],
+          time_from_start: {sec: 3, nanosec: 0}
+      }]
+  }}" \
+  --feedback
+```
+
+Send en fler-punkts trajektorie (tre waypoints):
+
+```bash
+ros2 action send_goal /simulated_joint_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {
+      joint_names: [shoulder_pan_joint, shoulder_lift_joint, elbow_joint,
+                    wrist_1_joint, wrist_2_joint, wrist_3_joint],
+      points: [
+          {positions: [0.0,    -1.5708, 0.0, -1.5708, 0.0, 0.0], time_from_start: {sec: 3, nanosec: 0}},
+          {positions: [0.7854, -1.5708, 0.5, -1.5708, 0.0, 0.0], time_from_start: {sec: 6, nanosec: 0}},
+          {positions: [0.0,    -1.5708, 0.0, -1.5708, 0.0, 0.0], time_from_start: {sec: 9, nanosec: 0}}
+      ]
+  }}" \
+  --feedback
+```
+
+> **Merk:** Posisjoner er i radianer. `0.7854 ≈ π/4` og `1.5708 ≈ π/2`.
+> `time_from_start` er tid siden trajektorien startet — ikke tid mellom punktene.
+
+> **Spørsmål:** Hva skjer hvis du setter `time_from_start` for to punkter til samme verdi?
+> Hva skjer hvis du sender et punkt med `time_from_start: {sec: 0, nanosec: 0}` som første punkt?
 
 ---
 
