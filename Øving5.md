@@ -11,8 +11,7 @@ planlegge og kjøre trajektorier på en UR5e-robot.
 
 ### Arbeidsform
 
-Øvingen gjøres i **par**. Dere jobber sammen gjennom alle delene — diskuter, hjelp hverandre og del skjermen når én skriver.
-Begge skal forstå det som leveres inn.
+Øvingen kan gjøres i **par**. Dere jobber sammen gjennom alle delene — diskuter, hjelp hverandre og del skjermen når én skriver.
 
 ---
 
@@ -574,12 +573,7 @@ Kjør noden inne i dev-containeren med MoveIt startet mot URSim (`sim_controller
 
 ---
 
-## Innleveringskrav
+## Læringsrefleksjon
 
-Lever følgende:
-
-1. **Skjermbilde** av Kine med en planlagt trajektorie (Del A — den oransje ghost-animasjonen)
-2. **Skjermbilde** av URSim under utførelse av en bevegelse (Del B)
-3. **Python-kildekode** for deres egen trajectory-node (Del C)
-4. **Refleksjon A/B** (3–5 setninger): Hva er forskjellen mellom å kjøre med simulert kontroller (Del A) og URSim (Del B)? Tenk på hastighet, realisme og oppførsel.
-5. **Læringsrefleksjon** (4–6 setninger): Hva var nytt eller overraskende for deg i denne øvingen? Hva synes du var vanskelig, og hva hjalp deg videre? Hva tar du med deg til neste øving?
+- Hva er forskjellen mellom å kjøre med simulert kontroller (Del A) og URSim (Del B)? Tenk på hastighet, realisme og oppførsel.
+- Hva var nytt eller overraskende for deg i denne øvingen? Hva synes du var vanskelig, og hva hjalp deg videre? Hva tar du med deg til neste øving?
