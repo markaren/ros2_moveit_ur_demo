@@ -5,7 +5,7 @@
 I denne øvingen skal dere bli kjent med **MoveIt 2** — et rammeverk for bevegelsesplanlegging i ROS 2 — 
 og **Universal Robots (UR)**-simulatorer. 
 Dere vil bruke et ferdig workspace med flere pakker som sammen lar dere visualisere, 
-planlegge og kjøre trajektorier på en UR5e-robot.
+planlegge og kjøre robotbaner på en UR5e-robot.
 
 >Ved feil i øvingen, kontakt Lars Ivar.
 
@@ -30,13 +30,13 @@ planlegge og kjøre trajektorier på en UR5e-robot.
 
 ### Pakker i workspace-et
 
-| Pakke | Beskrivelse |
-|---|---|
-| `ur_bringup` | Launch-filer for alle scenariene |
-| `kine` | 3D-visualisering med interaktiv gizmo-kontroll |
+| Pakke | Beskrivelse                                                      |
+|---|------------------------------------------------------------------|
+| `ur_bringup` | Launch-filer for alle scenariene                                 |
+| `kine` | 3D-visualisering med interaktiv gizmo-kontroll                   |
 | `target_planner` | MoveIt-basert planlegger med Plan/Execute/PlanAndExecute actions |
-| `simulated_controller` | Simulert joint-kontroller (erstatter ekte robot-driver) |
-| `joint_commander` | Python-noder som sender trajektorier via actions |
+| `simulated_controller` | Simulert joint-kontroller (erstatter ekte robot-driver)          |
+| `joint_commander` | Python-noder som sender robotbaner via actions                   |
 
 ---
 
@@ -131,7 +131,7 @@ Dette starter fire komponenter:
 **Oppgaver:**
 
 1. Flytt gizmoen til en ny posisjon (W + dra)
-2. Klikk **Plan** — observer den oransje ghost-animasjonen som viser planlagt trajektorie
+2. Klikk **Plan** — observer den oransje ghost-animasjonen som viser planlagt robotbane
 3. Klikk **Execute** — observer at roboten beveger seg til mål-posisjonen
 4. Flytt gizmoen til en annen posisjon og prøv **Plan & Execute** (planlegger og kjører i ett steg)
 5. Start en ny Plan & Execute og trykk **Cancel** under utførelse — observer at roboten stopper
@@ -146,10 +146,10 @@ Start på nytt med RViz aktivert:
 ros2 launch ur_bringup move_robot.launch.py launch_rviz:=true
 ```
 
-I RViz kan dere bruke **MotionPlanning**-panelet til å planlegge og kjøre trajektorier via MoveIt sitt eget grensesnitt:
+I RViz kan dere bruke **MotionPlanning**-panelet til å planlegge og kjøre robotbane via MoveIt sitt eget grensesnitt:
 1. Dra den interaktive markøren til en ny posisjon
 2. Klikk **Plan** og deretter **Execute**
-3. Observer den grønne ghost-roboten som viser planlagt sluttposisjon og den oransje som viser trajektorien
+3. Observer den grønne ghost-roboten som viser planlagt sluttposisjon og den oransje som viser robotbanen
 
 > **Spørsmål:** Sammenlign Kine og RViz som grensesnitt for MoveIt.
 > Hva kan du gjøre i RViz som ikke er mulig i Kine? Hva synes dere er enklere eller mer intuitivt i Kine?
@@ -167,8 +167,8 @@ ros2 action list
 ```
 
 Du skal se tre actions fra `target_planner`:
-- `/plan` — planlegger en trajektorie til mål-pose
-- `/execute` — kjører sist planlagte trajektorie
+- `/plan` — planlegger en robotbane til mål-pose
+- `/execute` — kjører sist planlagte robotbane
 - `/plan_and_execute` — planlegger og kjører i ett steg
 
 **Inspiser en action:**
@@ -239,7 +239,7 @@ Observer at roboten følger en sekvens av waypoints.
 
 > Denne koden blir referanse for Del C.
 
-**Send en trajektorie direkte fra CLI:**
+**Send en robotbane direkte fra CLI:**
 
 Du kan sende `FollowJointTrajectory`-goals uten å skrive en node — nyttig for rask testing.
 Inspiser action-typen først:
@@ -264,7 +264,7 @@ ros2 action send_goal /simulated_joint_controller/follow_joint_trajectory \
   --feedback
 ```
 
-Send en fler-punkts trajektorie (tre waypoints):
+Send en fler-punkts robotbane (tre waypoints):
 
 ```bash
 ros2 action send_goal /simulated_joint_controller/follow_joint_trajectory \
@@ -282,7 +282,7 @@ ros2 action send_goal /simulated_joint_controller/follow_joint_trajectory \
 ```
 
 > **Merk:** Posisjoner er i radianer. `0.7854 ≈ π/4` og `1.5708 ≈ π/2`.
-> `time_from_start` er tid siden trajektorien startet — ikke tid mellom punktene.
+> `time_from_start` er tid siden robotbane startet — ikke tid mellom punktene.
 
 > **Spørsmål:** Hva skjer hvis du setter `time_from_start` for to punkter til samme verdi?
 > Hva skjer hvis du sender et punkt med `time_from_start: {sec: 0, nanosec: 0}` som første punkt?
@@ -385,7 +385,7 @@ ros2 launch ur_bringup move_robot.launch.py sim_controller:=false launch_rviz:=f
 Nå bruker MoveIt `scaled_joint_trajectory_controller` fra `ur_robot_driver` i stedet for den simulerte kontrolleren.
 
 **Oppgaver:**
-1. Bruk gizmo-kontrollen i Kine til å planlegge og kjøre trajektorier
+1. Bruk gizmo-kontrollen i Kine til å planlegge og kjøre robotbane
 2. Observer at URSim-roboten (i nettleseren) beveger seg
 3. Sammenlign med Del A: legg merke til at bevegelsen ser mer realistisk ut
 
