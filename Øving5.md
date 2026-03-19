@@ -139,6 +139,22 @@ Dette starter fire komponenter:
 
 ![Kine med gizmo-kontroll](doc/screenshots/kine_control.png)
 
+**Kjør med RViz:**
+
+Start på nytt med RViz aktivert:
+
+```bash
+ros2 launch ur_bringup move_robot.launch.py launch_rviz:=true
+```
+
+I RViz kan dere bruke **MotionPlanning**-panelet til å planlegge og kjøre trajektorier via MoveIt sitt eget grensesnitt:
+1. Dra den interaktive markøren til en ny posisjon
+2. Klikk **Plan** og deretter **Execute**
+3. Observer den grønne ghost-roboten som viser planlagt sluttposisjon og den oransje som viser trajektorien
+
+> **Spørsmål:** Sammenlign Kine og RViz som grensesnitt for MoveIt.
+> Hva kan du gjøre i RViz som ikke er mulig i Kine? Hva synes dere er enklere eller mer intuitivt i Kine?
+
 ---
 
 ### A4: Utforsk ROS 2 actions
@@ -564,5 +580,6 @@ Lever følgende:
 
 1. **Skjermbilde** av Kine med en planlagt trajektorie (Del A — den oransje ghost-animasjonen)
 2. **Skjermbilde** av URSim under utførelse av en bevegelse (Del B)
-3. **Python-kildekode** for din egen trajectory-node (Del C)
-4. **Kort refleksjon** (3–5 setninger): Hva er forskjellen mellom å kjøre med simulert kontroller (Del A) og URSim (Del B)? Tenk på hastighet, realisme og oppførsel.
+3. **Python-kildekode** for deres egen trajectory-node (Del C)
+4. **Refleksjon A/B** (3–5 setninger): Hva er forskjellen mellom å kjøre med simulert kontroller (Del A) og URSim (Del B)? Tenk på hastighet, realisme og oppførsel.
+5. **Læringsrefleksjon** (4–6 setninger): Hva var nytt eller overraskende for deg i denne øvingen? Hva synes du var vanskelig, og hva hjalp deg videre? Hva tar du med deg til neste øving?
