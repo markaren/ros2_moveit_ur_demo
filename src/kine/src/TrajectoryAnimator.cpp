@@ -1,4 +1,4 @@
-#include "TrajectoryAnimator.hpp"
+#include "kine/TrajectoryAnimator.hpp"
 
 #include <algorithm>
 

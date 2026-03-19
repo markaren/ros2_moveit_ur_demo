@@ -1,4 +1,4 @@
-#include "src/KineEnvironment.hpp"
+#include "kine/KineEnvironment.hpp"
 
 #include <rclcpp/rclcpp.hpp>
 
