@@ -36,9 +36,11 @@ foreach (_xml IN LISTS _pkg_xmls)
     list(APPEND PACKAGES "${_pkg}")
 endforeach ()
 
+set(CMAKE_ARGS --cmake-args -GNinja -DCMAKE_BUILD_TYPE=Release --event-handlers console_direct+)
+
 foreach (pkg IN LISTS PACKAGES)
     add_custom_target(colcon_build_${pkg}
-            COMMAND colcon build --base-paths src --packages-select ${pkg} ${COLCON_INSTALL_FLAG} --cmake-args -DCMAKE_BUILD_TYPE=Release --event-handlers console_direct+
+            COMMAND colcon build --base-paths src --packages-select ${pkg} ${COLCON_INSTALL_FLAG} ${CMAKE_ARGS}
             WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
             USES_TERMINAL
             COMMENT "Running colcon build ${COLCON_INSTALL_FLAG} for package ${pkg}"
@@ -46,7 +48,7 @@ foreach (pkg IN LISTS PACKAGES)
 endforeach ()
 
 add_custom_target(colcon_build_all
-        COMMAND colcon build --base-paths src ${COLCON_INSTALL_FLAG} --cmake-args -DCMAKE_BUILD_TYPE=Release --event-handlers console_direct+
+        COMMAND colcon build --base-paths src ${COLCON_INSTALL_FLAG} ${CMAKE_ARGS}
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         USES_TERMINAL
         COMMENT "Running colcon build ${COLCON_INSTALL_FLAG}"

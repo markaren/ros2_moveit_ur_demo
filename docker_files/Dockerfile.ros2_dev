@@ -2,6 +2,9 @@ FROM ros_ur_base:latest
 
 # GUI and development tools
 RUN apt-get update && apt-get install -y \
+    libglfw3-dev \
+    ros-jazzy-rviz2 \
+    ros-jazzy-rqt \
     ros-jazzy-ur-moveit-config \
     ros-jazzy-rviz2 \
     ros-jazzy-rqt \
