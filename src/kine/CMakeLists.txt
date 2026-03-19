@@ -44,7 +44,7 @@ endif ()
 FetchContent_Declare(
         threepp
         GIT_REPOSITORY https://github.com/markaren/threepp.git
-        GIT_TAG eebc10c
+        GIT_TAG 857ac13
 )
 FetchContent_MakeAvailable(threepp)
 
