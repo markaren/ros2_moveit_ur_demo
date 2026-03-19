@@ -37,6 +37,10 @@ endif()
 include(FetchContent)
 set(THREEPP_BUILD_TESTS OFF)
 set(THREEPP_BUILD_EXAMPLES OFF)
+if (UNIX)
+    set(THREEPP_USE_EXTERNAL_GLFW ON)
+    message(STATUS "On Unix, use system GLFW. Make sure to install the development package (e.g. libglfw3-dev on Debian/Ubuntu).")
+endif ()
 FetchContent_Declare(
         threepp
         GIT_REPOSITORY https://github.com/markaren/threepp.git
