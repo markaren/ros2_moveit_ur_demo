@@ -1,10 +1,10 @@
-#include "KineEnvironment.hpp"
+#include "kine/KineEnvironment.hpp"
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
-#include "EETrail.hpp"
-#include "KineUI.hpp"
-#include "TransformKeyListener.hpp"
+#include "kine/EETrail.hpp"
+#include "kine/KineUI.hpp"
+#include "kine/TransformKeyListener.hpp"
 #include <threepp/cameras/PerspectiveCamera.hpp>
 #include <threepp/controls/OrbitControls.hpp>
 #include <threepp/controls/TransformControls.hpp>

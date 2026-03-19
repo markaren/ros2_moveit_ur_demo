@@ -53,7 +53,7 @@ add_subdirectory("${threepp_SOURCE_DIR}/examples/external" "${CMAKE_CURRENT_BINA
 
 
 add_executable(kine_environment
-        kine_environment.cpp
+        src/kine_main.cpp
         src/KineEnvironment.cpp
         src/TrajectoryAnimator.cpp
 )
@@ -65,7 +65,11 @@ ament_target_dependencies(kine_environment
         geometry_msgs
         moveit_ros_planning_interface
 )
+target_include_directories(kine_environment PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
 target_link_libraries(kine_environment threepp::threepp imgui ${_tp_ts_target})
+
 
 install(TARGETS
         kine_environment

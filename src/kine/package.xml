@@ -3,7 +3,7 @@
 <package format="2">
   <name>kine</name>
   <version>0.0.1</version>
-  <description>A simple kinematics demo</description>
+  <description>A 3D visualisation package for UR-robots</description>
 
   <maintainer email="laht@ntnu.no">Lars Ivar Hatledal</maintainer>
 

@@ -22,7 +22,7 @@
 
 #include <threepp/objects/Robot.hpp>
 
-#include "TrajectoryAnimator.hpp"
+#include "kine/TrajectoryAnimator.hpp"
 
 using namespace threepp;
 
